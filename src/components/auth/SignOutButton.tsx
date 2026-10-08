@@ -1,7 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,8 +9,11 @@ import { createClient } from "@/lib/supabase/client";
  * side, to `/login`).
  *
  * The session lives in a cookie the browser Supabase client owns, so the sign-out
- * has to happen here — a server action could not clear it. The redirect then
- * re-renders the navbar, so the icon flips back to the logged-out state.
+ * has to happen here — a server action could not clear it. Landing on the target
+ * with `window.location.assign` (a hard navigation) instead of a client-side
+ * `router.replace` also guarantees no cached logged-in state survives: the Next.js
+ * router cache is discarded and the destination re-renders as a fresh signed-out
+ * request, which is how the navbar icon flips back everywhere.
  */
 export default function SignOutButton({
   className,
@@ -24,23 +26,26 @@ export default function SignOutButton({
   /** The words under the button while the sign-out is in flight. */
   pendingLabel?: string;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const signOut = () => {
     setError(null);
+    setPending(true);
 
-    startTransition(async () => {
-      const supabase = createClient();
-      const { error: signOutError } = await supabase.auth.signOut();
+    const supabase = createClient();
 
+    void supabase.auth.signOut().then(({ error: signOutError }) => {
       if (signOutError) {
         setError("We could not sign you out. Please try again.");
+        setPending(false);
         return;
       }
 
-      router.replace(redirectTo);
+      // `signOut()` above already cleared the browser's session; this hard
+      // navigation drops the router-cache copy of the signed-in pages, so the
+      // landing route cannot serve cached logged-in content.
+      window.location.assign(redirectTo);
     });
   };
 

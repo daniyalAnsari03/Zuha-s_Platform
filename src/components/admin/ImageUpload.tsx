@@ -12,7 +12,9 @@ import {
 import {
   requestImageUpload,
   requestImageUploads,
+  type UploadBatchResult,
   type UploadTicket,
+  type UploadTicketResult,
 } from "@/lib/admin/uploads";
 import {
   describeImageProblem,
@@ -242,6 +244,15 @@ export function ImageGalleryUpload({
 
     try {
       await uploadItems(items);
+    } catch (caught) {
+      // Nothing in `uploadItems` should reach this line any more, but a batch
+      // must never be left with cards stuck on "Uploading…" forever.
+      console.error("[admin] image upload batch failed.", caught);
+      const message = describeUploadError(caught);
+      for (const card of pendingRef.current) {
+        if (card.uploadedUrl !== null || card.status === "failed") continue;
+        patch(card.id, { status: "failed", progress: null, error: message });
+      }
     } finally {
       setBatchBusy(false);
     }
@@ -250,17 +261,23 @@ export function ImageGalleryUpload({
   const uploadItems = async (items: AsyncUploadItem[]) => {
     let failed = false;
 
+    /** Fails one preview card, showing and logging the real reason. */
+    const failItem = (item: AsyncUploadItem, message: string) => {
+      console.error(`[admin] image upload failed (${item.file.name}).`, message);
+      patch(item.id, { status: "failed", progress: null, error: message });
+      failed = true;
+    };
+
     // Files that could not be previewed are already failed; do not waste a
     // signed URL or a PUT on them.
     const uploadable = items.filter((item) => item.localUrl !== null);
 
     for (const item of items) {
       if (item.localUrl) continue;
-      patch(item.id, {
-        status: "failed",
-        error: "That file could not be previewed. Please choose another image.",
-      });
-      failed = true;
+      failItem(
+        item,
+        "That file could not be previewed. Please choose another image.",
+      );
     }
 
     if (uploadable.length === 0) {
@@ -268,79 +285,130 @@ export function ImageGalleryUpload({
       return;
     }
 
-    const ticketResult = await requestImageUploads({
-      folder,
-      files: uploadable.map((item) => ({
-        contentType: item.file.type,
-        size: item.file.size,
-      })),
-    });
+    // One signed-URL request covers the whole batch. It can fail as a whole
+    // (a missing env var, a missing bucket, a rejected admin session) or come
+    // back without a ticket for a particular file — both are reported on the
+    // affected cards instead of throwing the whole batch away.
+    let ticketResult: UploadBatchResult | undefined;
 
-    if (!ticketResult.ok) {
+    try {
+      ticketResult = await requestImageUploads({
+        folder,
+        files: uploadable.map((item) => ({
+          contentType: item.file.type,
+          size: item.file.size,
+        })),
+      });
+    } catch (caught) {
+      console.error("[admin] could not request upload tickets.", caught);
+      const message = describeUploadError(caught);
       for (const item of uploadable) {
-        patch(item.id, {
-          status: "failed",
-          progress: null,
-          error: ticketResult.error,
-        });
+        failItem(item, message);
       }
       return;
     }
 
+    const tickets =
+      ticketResult?.ok === true && Array.isArray(ticketResult.tickets)
+        ? ticketResult.tickets
+        : null;
+
+    if (tickets === null) {
+      const message =
+        ticketResult !== undefined && ticketResult.ok === false
+          ? ticketResult.error
+          : "The server did not issue upload tickets. Please try again.";
+      console.error("[admin] upload tickets were not issued.", message);
+      for (const item of uploadable) {
+        failItem(item, message);
+      }
+      return;
+    }
+
+    if (tickets.length !== uploadable.length) {
+      console.error(
+        `[admin] expected ${uploadable.length} upload ticket(s), received ${tickets.length}.`,
+      );
+    }
+
     // Results come back in pick order regardless of when each PUT finished, so
-    // the success list never shuffles the gallery.
+    // the success list never shuffles the gallery. `mapPool` guarantees one
+    // entry per file, so a failure on one image cannot hide the others.
     const results = await mapPool(
       uploadable.length,
       GALLERY_UPLOAD_PARALLELISM,
       async (index) => {
-        const ticket = ticketResult.tickets[index];
+        const item = uploadable[index];
 
-        if (!ticket?.ok) {
+        if (!item) {
           return {
-            index,
-            outcome: {
-              ok: false as const,
-              error:
-                ticket?.error ??
-                "That image could not be uploaded. Please try again.",
-            },
+            ok: false as const,
+            error: "That image is no longer part of this upload. Please try again.",
           };
         }
 
-        return {
-          index,
-          outcome: await uploadWithSignedUrl(
-            ticket.ticket,
-            uploadable[index].file,
-            (percent) => patch(uploadable[index].id, { progress: percent }),
-          ),
-        };
+        const ticket: UploadTicketResult | undefined = tickets[index];
+
+        if (!ticket) {
+          return {
+            ok: false as const,
+            error: `The server did not issue an upload ticket for image ${index + 1} of ${uploadable.length}. Please try again.`,
+          };
+        }
+
+        if (!ticket.ok) {
+          return { ok: false as const, error: ticket.error };
+        }
+
+        if (typeof ticket.ticket?.signedUrl !== "string" || !ticket.ticket.publicUrl) {
+          return {
+            ok: false as const,
+            error: "The server issued an unusable upload ticket. Please try again.",
+          };
+        }
+
+        return uploadWithSignedUrl(ticket.ticket, item.file, (percent) =>
+          patch(item.id, { progress: percent }),
+        );
       },
     );
 
-    for (const { index, outcome } of results) {
+    for (let index = 0; index < uploadable.length; index += 1) {
       const item = uploadable[index];
+      const outcome = results[index]?.outcome;
+
+      if (!item) continue;
+
+      if (!outcome) {
+        failItem(item, "No result came back for this image. Please try again.");
+        continue;
+      }
 
       if (!outcome.ok) {
-        patch(item.id, { status: "failed", progress: null, error: outcome.error });
-        failed = true;
+        failItem(item, outcome.error);
         continue;
       }
 
       // The form value takes the URL now; the card stays until it has loaded.
-      patch(item.id, { uploadedUrl: outcome.url, progress: 100, status: "settling" });
-      append(outcome.url);
-
-      if (await preloadStoredImage(outcome.url)) {
-        dropCard(item.id, item.localUrl);
-      } else {
+      try {
         patch(item.id, {
-          status: "failed",
-          progress: null,
-          error:
-            "Uploaded, but that image could not be loaded here. Remove it and try again.",
+          uploadedUrl: outcome.url,
+          progress: 100,
+          status: "settling",
         });
-        failed = true;
+        append(outcome.url);
+
+        if (await preloadStoredImage(outcome.url)) {
+          dropCard(item.id, item.localUrl);
+        } else {
+          failItem(
+            item,
+            "Uploaded, but that image could not be loaded here. Remove it and try again.",
+          );
+        }
+      } catch (caught) {
+        console.error("[admin] could not finish an uploaded image.", caught);
+        failItem(item, describeUploadError(caught));
       }
     }
 
@@ -661,6 +729,10 @@ function ImageSlot({
       // instant — no empty frame between the preview and the saved image.
       setSettledUrl(outcome.url);
     } else {
+      console.error(
+        "[admin] uploaded image could not be loaded here.",
+        outcome.url,
+      );
       setSwapError(
         "Uploaded, but that image could not be loaded here. The preview is kept — remove it and try again if it looks wrong.",
       );
@@ -841,6 +913,13 @@ function preloadStoredImage(url: string): Promise<boolean> {
 
 type UploadOutcome = { ok: true; url: string } | { ok: false; error: string };
 
+/** What an exception or a server refusal looks like to the admin. */
+function describeUploadError(caught: unknown): string {
+  if (caught instanceof Error && caught.message) return caught.message;
+  if (typeof caught === "string" && caught.trim()) return caught;
+  return "That image could not be uploaded. Please try again.";
+}
+
 /**
  * Validates, signs, uploads and returns the public URL.
  *
@@ -865,17 +944,15 @@ async function runUpload(
       size: file.size,
     });
 
-    if (!ticket.ok) return { ok: false, error: ticket.error };
+    if (!ticket.ok) {
+      console.error(`[admin] upload was not signed (${file.name}).`, ticket.error);
+      return { ok: false, error: ticket.error };
+    }
 
     return await uploadWithSignedUrl(ticket.ticket, file, onProgress);
   } catch (caught) {
-    return {
-      ok: false,
-      error:
-        caught instanceof Error && caught.message
-          ? caught.message
-          : "That image could not be uploaded. Please try again.",
-    };
+    console.error(`[admin] image upload failed (${file.name}).`, caught);
+    return { ok: false, error: describeUploadError(caught) };
   }
 }
 
@@ -888,47 +965,91 @@ async function uploadWithSignedUrl(
   file: File,
   onProgress: (percent: number) => void,
 ): Promise<UploadOutcome> {
-  await putToSignedUrl(ticket.signedUrl, file, onProgress);
+  try {
+    await putToSignedUrl(ticket.signedUrl, file, onProgress);
+  } catch (caught) {
+    console.error(`[admin] storage rejected the upload (${file.name}).`, describeUploadError(caught));
+    return { ok: false, error: describeUploadError(caught) };
+  }
+
   onProgress(100);
 
   return { ok: true, url: ticket.publicUrl };
 }
 
 /**
- * Runs `count` units of work with at most `limit` of them in flight at once.
- * Results come back in input order, never the order they finished in.
+ * One indexed result of the pool below.
  */
-async function mapPool<T>(
+type IndexedOutcome = { index: number; outcome: UploadOutcome };
+
+/**
+ * Runs `count` units of work with at most `limit` of them in flight at once.
+ *
+ * Guarantees, whatever the workers do:
+ *
+ * - exactly `count` entries, in input order — never a hole and never a longer
+ *   array (an out-of-range index used to be launched, which let the pool report
+ *   itself finished while a real upload was still in flight and left the hole
+ *   the caller then crashed on);
+ * - a worker that throws or rejects becomes a failure entry for *its own* index
+ *   only — it never rejects the pool and never disturbs the other files;
+ * - `count <= 0` returns immediately instead of waiting forever.
+ */
+async function mapPool(
   count: number,
   limit: number,
-  work: (index: number) => Promise<T>,
-): Promise<T[]> {
-  const results = new Array<T>(count);
+  work: (index: number) => Promise<UploadOutcome>,
+): Promise<IndexedOutcome[]> {
+  const total = Number.isFinite(count) ? Math.max(Math.floor(count), 0) : 0;
+  const results = new Array<IndexedOutcome | undefined>(total);
+
+  // A plain cursor: read and bumped in the same synchronous step, so no two
+  // workers can take the same index and none can be skipped.
   let cursor = 0;
-  let settled = 0;
 
-  await new Promise<void>((resolve, reject) => {
-    const launch = () => {
-      while (settled < count && cursor - settled < limit) {
-        const index = cursor;
-        cursor += 1;
+  const runWorker = async (): Promise<void> => {
+    for (;;) {
+      const index = cursor;
+      if (index >= total) return;
+      cursor += 1;
 
-        void work(index).then(
-          (value) => {
-            results[index] = value;
-            settled += 1;
-            if (settled === count) resolve();
-            else launch();
-          },
-          (error: unknown) => reject(error),
-        );
+      let outcome: UploadOutcome;
+      try {
+        const value = await work(index);
+        outcome = value ?? {
+          ok: false,
+          error: "That image could not be uploaded. Please try again.",
+        };
+      } catch (caught) {
+        console.error(`[admin] image upload worker ${index} failed.`, caught);
+        outcome = { ok: false, error: describeUploadError(caught) };
       }
+
+      results[index] = { index, outcome };
+    }
+  };
+
+  const workerCount = Math.min(
+    Number.isFinite(limit) ? Math.max(Math.floor(limit), 1) : 1,
+    total,
+  );
+
+  await Promise.all(
+    Array.from({ length: workerCount }, () => runWorker()),
+  );
+
+  // Defence in depth: no slot may ever come back missing.
+  return Array.from({ length: total }, (_, index) => {
+    const entry = results[index];
+    if (entry) return entry;
+    return {
+      index,
+      outcome: {
+        ok: false,
+        error: "No result came back for this image. Please try again.",
+      },
     };
-
-    launch();
   });
-
-  return results;
 }
 
 /**
@@ -977,7 +1098,14 @@ function putToSignedUrl(
     };
 
     request.onerror = () =>
-      reject(new Error("That image could not be uploaded. Please try again."));
+      reject(
+        new Error(
+          "Network error while uploading to storage. Check the connection and try again.",
+        ),
+      );
+
+    request.onabort = () =>
+      reject(new Error("The upload was interrupted. Please try again."));
 
     request.send(file);
   });
@@ -997,5 +1125,7 @@ function uploadErrorMessage(status: number, body: string): string {
     message = "";
   }
 
-  return message || "That image could not be uploaded. Please try again.";
+  return message
+    ? `Upload failed: ${status} - ${message}`
+    : `Upload failed: ${status}. Please try again.`;
 }

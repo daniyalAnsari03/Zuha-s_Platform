@@ -49,6 +49,30 @@ const EAGER_SLIDES = 2;
 /** Elements marked with this attribute scroll on their own (e.g. the footer). */
 const SCROLLABLE_SELECTOR = "[data-scrollable]";
 
+/**
+ * The footer slide's own scroll box (SiteFooter renders it with this id).
+ *
+ * It is the only scroll box that hands a gesture back to the slider: when it
+ * has no room left in the direction of the gesture, the slider takes over, so
+ * an upward gesture on the last slide moves back to the previous one. The open
+ * menu / search / cart panels keep every gesture for themselves.
+ */
+const FOOTER_SELECTOR = "#site-footer";
+
+/** The footer scroll box the gesture started in, or `null` for anything else. */
+function footerScroller(target: EventTarget | null): HTMLElement | null {
+  const element = target as HTMLElement | null;
+  if (!element || typeof element.closest !== "function") return null;
+  return element.closest<HTMLElement>(FOOTER_SELECTOR);
+}
+
+/** True when the footer box has no scroll left in `direction` (-1 up, 1 down). */
+function isFooterEdge(footer: HTMLElement, direction: 1 | -1): boolean {
+  return direction < 0
+    ? footer.scrollTop <= 0
+    : footer.scrollTop + footer.clientHeight >= footer.scrollHeight - 1;
+}
+
 /** Optimized candidates for a `<source>`; vectors are served as-is. */
 function slideSrcSet(src: string) {
   if (isVectorImage(src)) return src;
@@ -173,10 +197,21 @@ export default function CategorySlider({
     };
 
     const onWheel = (event: WheelEvent) => {
-      // The homepage is a fixed stack: never let the document scroll.
       const target = event.target as HTMLElement | null;
-      if (target?.closest(SCROLLABLE_SELECTOR)) return;
+      const footer = footerScroller(target);
 
+      if (footer) {
+        // The footer slide scrolls its own content while it still has room.
+        // An upward gesture that has reached its very top comes back out to
+        // the slider — that is what leaves the last slide again. Everything
+        // else (scrolling the footer down, or down at its bottom) stays put.
+        if (!(event.deltaY < 0 && isFooterEdge(footer, -1))) return;
+      } else if (target?.closest(SCROLLABLE_SELECTOR)) {
+        // The open menu / search / cart panel keeps its own gestures.
+        return;
+      }
+
+      // The homepage is a fixed stack: never let the document scroll.
       event.preventDefault();
 
       if (lockedRef.current || Math.abs(event.deltaY) < 2) {
@@ -221,6 +256,24 @@ export default function CategorySlider({
       // Space activates the focused control (dot rail, links) instead.
       if (event.key === " " && target?.tagName === "BUTTON") return;
 
+      // Keys pressed while focus is inside the footer slide: the footer's own
+      // scroll wins until it has none left in that direction, so a footer
+      // taller than the viewport scrolls normally first and only then hands
+      // the gesture back to the slider. When the footer fits the viewport
+      // (the usual case) this never triggers, so every vertical key moves a
+      // slide exactly as before.
+      const footer = footerScroller(target);
+      if (footer) {
+        const direction =
+          event.key === "ArrowUp" || event.key === "PageUp"
+            ? -1
+            : event.key === "ArrowDown" || event.key === "PageDown"
+              ? 1
+              : null;
+
+        if (direction !== null && !isFooterEdge(footer, direction)) return;
+      }
+
       switch (event.key) {
         case "ArrowDown":
         case "PageDown":
@@ -255,6 +308,8 @@ export default function CategorySlider({
     let startX = 0;
     let startY = 0;
     let tracking = false;
+    /** The footer scroll box this gesture began in, if any. */
+    let footer: HTMLElement | null = null;
 
     const onClick = (event: MouseEvent) => {
       if (!suppressClickRef.current) return;
@@ -267,22 +322,30 @@ export default function CategorySlider({
       const touch = event.touches[0];
       if (!touch) return;
 
-      // A swipe that begins inside a scrollable box (the footer, the open
-      // menu/search/cart panel) belongs to that box, not to the slider.
       const target = event.target as HTMLElement | null;
-      if (target?.closest(SCROLLABLE_SELECTOR)) {
+
+      // A swipe that begins inside a scrollable box (the open menu / search /
+      // cart panel) belongs to that box, not to the slider. The footer slide
+      // is the one exception: it is tracked here and hands the gesture back
+      // in onTouchEnd once it has no scroll left in that direction.
+      const footerStart = footerScroller(target);
+      if (!footerStart && target?.closest(SCROLLABLE_SELECTOR)) {
         tracking = false;
         return;
       }
 
       startX = touch.clientX;
       startY = touch.clientY;
+      footer = footerStart;
       tracking = true;
     };
 
     const onTouchEnd = (event: TouchEvent) => {
       if (!tracking) return;
       tracking = false;
+
+      const footerScroll = footer;
+      footer = null;
 
       const touch = event.changedTouches[0];
       if (!touch) return;
@@ -310,9 +373,23 @@ export default function CategorySlider({
 
       if (!isSwipe) return;
 
+      const direction = deltaY > 0 ? 1 : -1;
+
+      // The footer has already scrolled natively under this gesture, so it
+      // always wins first: only a downward swipe it could not scroll itself
+      // (finger dragging down = previous slide) leaves the footer. Any other
+      // gesture stays inside it — including a downward swipe that the footer
+      // is still scrolling, and every forward gesture on the last slide.
+      if (
+        footerScroll &&
+        !(direction === -1 && isFooterEdge(footerScroll, -1))
+      ) {
+        return;
+      }
+
       // Swallow the synthetic click that would otherwise follow the swipe.
       if (event.cancelable) event.preventDefault();
-      goTo(indexRef.current + (deltaY > 0 ? 1 : -1));
+      goTo(indexRef.current + direction);
     };
 
     window.addEventListener("touchstart", onTouchStart, { passive: true });

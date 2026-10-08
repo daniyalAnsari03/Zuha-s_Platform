@@ -65,9 +65,10 @@ function readReturnPath(): string | null {
  * quietly rather than pushed.
  *
  * Two ways in, both on Supabase Auth: "Continue with Google" and an email and
- * password form. Google leaves the page and comes back, which is why its redirect
- * target is `/account` — the browser client picks the session out of the URL on
- * arrival and the redirect below moves the shopper on.
+ * password form. Google leaves the page and comes back to the `/auth/callback`
+ * route, which exchanges the `?code` for a session server-side and then sends the
+ * shopper on to the destination carried in `?next=` (see `src/app/auth/callback/
+ * route.ts`).
  */
 export default function LoginPage() {
   const router = useRouter();
@@ -85,6 +86,14 @@ export default function LoginPage() {
   // Read once, at mount: the query string cannot change underneath this page.
   const [returnPath] = useState(readReturnPath);
   const destination = returnPath ?? ACCOUNT_HREF;
+
+  // A failed OAuth exchange redirects back here with `?error=auth` (see
+  // `src/app/auth/callback/route.ts`). Read from `window` like `readReturnPath`,
+  // so this static page stays static.
+  const [oauthError] = useState(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("error");
+  });
 
   // Already signed in: nothing to do here.
   useEffect(() => {
@@ -191,7 +200,10 @@ export default function LoginPage() {
         options: {
           // Supabase requires this exact URL to be allow-listed as a redirect
           // target for the Google provider (see the setup notes in the summary).
-          redirectTo: `${window.location.origin}${ACCOUNT_HREF}`,
+          // The `next` parameter carries where this shopper was heading — the
+          // `?next=` return path if one brought them here, otherwise /account —
+          // and the callback route validates it before redirecting.
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(destination)}`,
         },
       })
       // No error means the browser is already on its way to Google, in which
@@ -219,6 +231,12 @@ export default function LoginPage() {
           Signing in is optional — you can check out as a guest. An account only
           adds your order history.
         </p>
+
+        {oauthError === "auth" ? (
+          <p role="alert" className="mt-4 text-sm text-plum">
+            We could not complete that sign-in. Please try again.
+          </p>
+        ) : null}
 
         <button
           type="button"

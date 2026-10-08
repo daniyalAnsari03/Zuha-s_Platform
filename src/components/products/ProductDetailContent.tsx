@@ -449,11 +449,6 @@ export default function ProductDetailContent({
               {product.name}
             </h1>
 
-            {/*
-             * From lg up the heart sits beside the name. The slider layout
-             * puts it last instead, after the buy buttons, so it is hidden
-             * here below lg and rendered again at the end of the column.
-             */}
             <button
               type="button"
               onClick={() => toggle(product.id)}
@@ -463,7 +458,7 @@ export default function ProductDetailContent({
                   ? `Remove ${product.name} from wishlist`
                   : `Add ${product.name} to wishlist`
               }
-              className="hidden h-11 w-11 shrink-0 items-center justify-center border border-black/10 text-black transition-colors hover:border-plum hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum lg:flex"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 text-black transition-colors hover:border-plum hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
             >
               <PopOnChange trigger={saved} enabled={saved}>
                 <HeartIcon
@@ -629,30 +624,7 @@ export default function ProductDetailContent({
           </p>
         </div>
 
-        {/*
-         * Below lg the slider layout ends the column with the wishlist heart;
-         * from lg up it is back beside the name instead.
-         */}
-        <button
-          type="button"
-          onClick={() => toggle(product.id)}
-          aria-pressed={saved}
-          aria-label={
-            saved
-              ? `Remove ${product.name} from wishlist`
-              : `Add ${product.name} to wishlist`
-          }
-          className="flex h-11 w-11 shrink-0 items-center justify-center border border-black/10 text-black transition-colors hover:border-plum hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum lg:hidden"
-        >
-          <PopOnChange trigger={saved} enabled={saved}>
-            <HeartIcon
-              width={20}
-              height={20}
-              fill={saved ? "currentColor" : "none"}
-              className={saved ? "text-plum" : undefined}
-            />
-          </PopOnChange>
-        </button>
+
       </div>
 
       <ProductImageViewer

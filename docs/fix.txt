@@ -1,32 +1,25 @@
-Make the whole admin dashboard feel fast: sidebar navigation, every list page, every button, add/edit/delete, saves, and especially image uploads. Admin side only; do not change the customer storefront in this task. Do not change any UI, layout, colors or the existing animations. Security must not weaken: requireAdmin() stays inside every admin server action and every admin page/layout, writes keep going through server actions with the service-role client, and nothing from admin gets cached across users.
+TASK: Commit all current changes and push them ONCE to the existing GitHub repo. The user has explicitly confirmed this push (remote origin = https://github.com/daniyalAnsari03/Zuha-s_Platform.git, branch main). Do not touch anything else.
 
-1. NAVIGATION (clicking sidebar options is slow)
-- Find why each admin page takes long to open: sequential Supabase queries, repeated auth/admin-allowlist lookups, heavy client bundles, missing loading states.
-- Make the auth/admin check run ONCE per request: wrap requireAdmin()/getUser()/the admin_emails allowlist read in React cache() so layout + page + actions do not repeat the same queries within one request. Keep it fail-closed.
-- Run independent queries in parallel with Promise.all on every admin page (dashboard home, categories, products, inventory, orders, customers, analytics, announcements, team, settings).
-- Select only the columns each admin list needs; paginate or limit large lists (orders, customers, products) with a sensible page size and a simple "load more"/pagination control that matches the current UI style.
-- Add a lightweight loading.tsx skeleton for every admin route so clicking a sidebar item gives instant feedback, plus a pending/active state on the clicked sidebar item. Sidebar links must use next/link with prefetch.
-- Dynamically import heavy admin-only client code (recharts in Analytics, rich dialogs and forms) with next/dynamic so they do not load on every admin page.
-- Admin pages must always show fresh data (no stale cache for admin reads); only the storefront uses the tagged cache. Keep the existing storefront revalidation calls in the admin actions unchanged.
+STEPS:
+1. Run `git status` and `git remote -v` and `git log --oneline -3`. Confirm the branch is main and origin is the URL above. If anything differs, STOP and report.
+2. SECRET SCAN BEFORE COMMITTING (mandatory): search all changed and new files, and docs/f.txt, plus the rest of the project (excluding node_modules and .next), for real secrets: the actual values from .env.local, strings starting with "eyJ" (JWTs) outside package-lock.json, "sb_secret_", a literal SUPABASE_SERVICE_ROLE_KEY value, private keys, OAuth client secrets, hard-coded passwords or tokens. Env variable NAMES in code are fine; literal VALUES are not. If any real secret is found in a file that would be committed, STOP, do not commit or push, and report the file and line with the value masked.
+3. Check .gitignore still ignores: node_modules, .next, .env*, tsconfig.tsbuildinfo, *.log, and any test or scratch output files (for example tsc.txt or similar leftover output files created during work). Add scratch files to .gitignore or leave them unstaged; do not commit junk.
+4. Run `npm run typecheck`, `npm run lint` (errors only) and `npm run build`. The user has stopped all dev servers, so the build is allowed. If any of them FAILS, STOP and report; do not commit or push a broken build.
+5. `git add -A`, then `git status` and list every file that will be committed. Verify there is no .env file, no node_modules, no .next, no tsbuildinfo, no database dump, no secret. Include docs/f.txt only if step 2 found nothing sensitive in it.
+6. Commit with the message: "Footer redesign, contact form + admin messages, admin Dashboard button, mobile navbar, slider and wishlist fixes, ISR speed-up, Google login callback, admin upload fix". If the changes split naturally, one commit is fine.
+7. Push: `git push origin main`. NEVER use --force or --force-with-lease, no rebase, no history rewriting. If the push is rejected or needs authentication you cannot complete, STOP and report the exact error.
+8. After a successful push run `git log --oneline -5` and `git status` and report them.
 
-2. BUTTONS, ADD, EDIT, DELETE, SAVE (everything feels slow)
-- Every button that triggers a server action must show an instant pending state (disabled + small spinner or "Saving...") using useTransition/useFormStatus, so the click feels immediate and double-submits are blocked.
-- After a save/add/delete, update the UI right away from the action's returned data (optimistic update or local state update) instead of waiting for a full router.refresh and full page re-fetch. Revalidate only what is needed (the specific path and the storefront tags), not the whole admin.
-- In server actions, run independent steps in parallel (for example storefront cache invalidation and any follow-up reads) and do not await work that the response does not need.
-- Remove redundant queries inside actions (re-reading the same row several times, extra existence checks that the database constraint already covers) without changing behavior or error messages.
+RULES:
+- Do NOT deploy anywhere yourself and do NOT create or change any Vercel/GitHub Actions/CI configuration (the site redeploys automatically from GitHub on its own).
+- Do NOT run SQL or touch Supabase.
+- Do NOT modify any source file. Only .gitignore may change, and only if needed.
+- Do NOT start any dev server or `npm start`.
+- Push exactly once, to origin main.
 
-3. IMAGE UPLOADS (slow to appear, slow to change, slow to save)
-- Show a local preview instantly the moment a file is chosen (URL.createObjectURL), before the upload finishes. Revoke the object URL when done.
-- Upload directly from the browser to Supabase Storage using the existing signed upload URL flow, with a visible progress indicator. Do not send the file through a server action body.
-- For multi-image product galleries, upload files in parallel (limit concurrency to about 3) and show each image's own progress; allow saving only when all uploads are done.
-- Request the signed upload URL and run validation (type jpeg/png/webp, max 5 MB) as quickly as possible; do not make extra server round-trips per file beyond the one signed-URL request.
-- Do NOT compress, resize or re-encode the original file: uploads must stay at original quality.
-- After upload, use the returned public URL directly in the form state; do not refetch the whole page. Replacing an image must swap the preview immediately, and deleting the old file from storage must happen in the background, not block the save.
-- Saving a category or product that has already-uploaded images should only write the URLs (fast), not re-upload anything.
-- Keep the displayed images in admin lists small: use next/image with proper sizes (thumbnail size) in admin tables and cards instead of loading full originals.
-
-4. SAFETY RULES
-- Do not change the database schema, do not run SQL, do not push to GitHub, do not deploy.
-- Do NOT run npm run build and do NOT start or restart the dev server on port 3000.
-- Run npm run typecheck and npm run lint only.
-- At the end report: per-file changes, the root causes you found for slow sidebar navigation, slow uploads and slow saves, which admin routes now have loading skeletons, which pages were paginated and their page size, and anything you chose not to do and why.
+REPORT BACK (plain text):
+- result of the secret scan (files checked, anything found, values masked)
+- typecheck, lint and build results (include the build route table)
+- number of files committed and confirmation that no .env file or secret is included
+- whether docs/f.txt was included
+- the commit hash and the push result (success or the exact error)

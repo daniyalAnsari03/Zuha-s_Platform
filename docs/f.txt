@@ -1,26 +1,29 @@
-TASK: Create a local git repository for this project, commit it, and push it ONCE to my GitHub repo. The user has explicitly confirmed this one push to this exact URL: https://github.com/daniyalAnsari03/Zuha-s_Platform.git
+TASK: Fix a regression in the admin image upload. Investigate first, then fix. Do NOT add features and do NOT change anything else.
+
+ERROR (localhost, dev mode), happens when uploading an image for any category (and possibly other forms); name and price save fine, only the image fails:
+Runtime TypeError: Cannot destructure property 'index' of '.for' as it is undefined.
+at uploadItems (src/components/admin/ImageUpload.tsx:321)  -> `for (const { index, outcome } of results) {`
+at async uploadFiles (src/components/admin/ImageUpload.tsx:244)
+
+LIKELY CAUSE (verify it yourself): `results` contains an undefined entry. For example mapPool (the helper that runs up to 3 uploads in parallel) writes results by index, and when one upload callback throws or rejects (a network failure on the signed-URL PUT, a rejected server action, a non-2xx response, a file validation problem) that slot is never filled, so a hole is left in the array and the destructuring crashes. This also hides the REAL upload error. Also check that requestImageUploads (the batch signed-URL server action) can return fewer tickets or an error object that the code then indexes incorrectly (undefined ticket for a file).
 
 STEPS:
-1. Check whether a .git folder already exists. If it does, do not re-initialize; run `git status`, `git remote -v` and `git log --oneline -5`, report them, and continue only if it is safe.
-2. Check .gitignore. It must ignore at least: node_modules, .next, .env, .env.*, tsconfig.tsbuildinfo, *.log, .DS_Store, and any other build/cache output. Keep a committed .env.example only if one already exists and contains NO real values. Fix .gitignore if needed.
-3. SECRET SCAN BEFORE COMMITTING (mandatory): search the whole project (excluding node_modules and .next) for secrets: the actual values from .env.local, strings starting with "eyJ" (JWTs), "sb_secret_", "service_role" next to a literal key, "SUPABASE_SERVICE_ROLE_KEY=" followed by a value, private keys, OAuth client secrets, hard-coded passwords or tokens. Environment variable NAMES in code (process.env.SUPABASE_SERVICE_ROLE_KEY) are fine; literal VALUES are not. If any real secret is found in a file that would be committed, STOP, do not commit or push, and report the file and line (do not print the secret value itself, only mask it).
-4. Run `git init` (if needed), set the default branch to main, `git add .`, then run `git status` and list every file that will be committed. Verify there is NO .env file, no node_modules, no .next, no tsbuildinfo, no uploaded user images or database dumps. If anything like that is staged, unstage it and fix .gitignore.
-5. Commit with the message: "Initial commit: ZUHA'S e-commerce platform".
-6. Remote: if `origin` does not exist run `git remote add origin https://github.com/daniyalAnsari03/Zuha-s_Platform.git`; if it exists with a different URL, STOP and report instead of changing it.
-7. Push: `git push -u origin main`. NEVER use --force or --force-with-lease. If the push is rejected (for example because the GitHub repo already has a README or other commits) or asks for authentication that you cannot complete, STOP and report the exact error message; do not try to work around it with force, rebase or merge on your own.
-8. After a successful push run `git log --oneline -3` and `git status` and report them.
+1. Read ImageUpload.tsx (mapPool, uploadItems, uploadFiles, uploadWithSignedUrl, the single-slot ImageSlot flow, and the gallery flow) and src/lib/admin/uploads.ts (requestImageUpload and requestImageUploads). Report the exact root cause.
+2. Make mapPool (or whatever runs the parallel uploads) fully robust: every item ALWAYS produces a result entry, in the original order, even when the worker throws or rejects. Wrap each worker in try/catch and convert an exception into {index, outcome: {ok: false, error: <readable message>}}. Never leave a hole, never let one failing file reject the whole batch or break the others, never use shared mutable counters that can get stuck. Do not use useState(function).
+3. Make uploadItems defensive: if results has a missing entry, treat it as a failure for that item with a clear message instead of crashing. Also guard against requestImageUploads returning an error, a different count of tickets, or a missing ticket for a file: show a clear error message on the affected image(s).
+4. SHOW THE REAL ERROR to the admin: failed uploads must display the actual reason (for example "Upload failed: 403 ..." or "Network error while uploading to storage" or the server action's message) under the image/card, with the existing Remove/Retry behavior. Also console.error the full error in the browser console (but never any secret values).
+5. After the fix, a failed image must not break saving the rest of the form; a successful image must still go through: choose file -> instant local preview -> signed URL -> PUT -> public URL into the form -> Save works. Single slots (category Desktop Image and Mobile Image (optional), sub-category, team member) and the product gallery must all keep working. Uploads stay byte-for-byte the original file (no resize, no compression, no re-encoding). Rules unchanged: jpeg/png/webp, max 5 MB, public store-images bucket, writes only via server, requireAdmin() first.
+6. Check for the actual underlying reason an upload could fail right now and report what you find: the signed URL creation (bucket name, path), the PUT headers (content-type, x-upsert, cache-control), and whether the storage bucket policy/grants could reject the PUT. Do not change SQL; only report.
 
 RULES:
-- Do NOT deploy anywhere, do NOT connect Vercel/Netlify, do NOT create GitHub Actions or any CI files.
-- Do NOT run SQL or touch Supabase.
-- Do NOT modify any source file. Only .gitignore may change.
-- Do NOT start, stop or restart any dev server and do NOT touch the .next folder.
-- Push exactly once, to the URL above, to the main branch.
+- No next/dynamic with ssr: false in server components. No useState(function) patterns. No useNavigation.
+- Do NOT start, stop or restart any dev server, do NOT touch .next, do NOT run `npm run build`. Only typecheck (also `npx tsc --noEmit --incremental false`) and lint (errors only).
+- Do NOT run SQL, create migrations, push to GitHub, deploy, or commit.
+- Do NOT change storefront files or any other admin behavior.
 
 REPORT BACK (plain text):
-- whether a .git folder already existed
-- what you changed in .gitignore
-- result of the secret scan (files checked, anything found, values masked)
-- number of files committed, and confirmation that no .env file is included
-- the commit hash
-- the push result (success or the exact error)
+- root cause with file names and the exact code
+- files changed with one line why each
+- how failed uploads now look to the admin (exact message format)
+- what you found in step 6 about why an upload could fail
+- typecheck and lint results

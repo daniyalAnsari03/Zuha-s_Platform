@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import SignOutButton from "@/components/auth/SignOutButton";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
+import { getAdminAccess } from "@/lib/admin/guard";
 import { getCustomerOrders } from "@/lib/order-data";
 import { formatAmount, formatOrderDate } from "@/lib/order-types";
 import { createClient } from "@/lib/supabase/server";
@@ -34,6 +35,9 @@ export default async function AccountPage() {
 
   const orders = await getCustomerOrders();
 
+  const adminAccess = await getAdminAccess();
+  const isAdmin = adminAccess.status === "admin";
+
   return (
     <section className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 lg:px-12 xl:px-24">
       <h1 className="sr-only">My Account</h1>
@@ -52,6 +56,17 @@ export default async function AccountPage() {
 
         <SignOutButton />
       </div>
+
+      {isAdmin ? (
+        <div className="mt-8">
+          <Link
+            href="/admin"
+            className="inline-flex w-full min-h-11 items-center justify-center bg-plum px-8 py-3 text-xs tracking-[0.16em] text-white uppercase transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum sm:w-auto"
+          >
+            Admin Dashboard
+          </Link>
+        </div>
+      ) : null}
 
       <div className="mt-10 lg:mt-12">
         <h3 className="text-sm tracking-[0.16em] uppercase">My Orders</h3>

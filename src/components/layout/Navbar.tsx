@@ -155,11 +155,23 @@ export default function Navbar({
       >
         <motion.nav
           aria-label="Primary"
-          className={`${CONTENT_CONTAINER} flex ${NAV_HEIGHT} items-center justify-between`}
+          // Below md the row is a three-column grid. Both side columns use the
+          // same sizing function (min 88px = the two icon buttons on the right,
+          // then an equal 1fr share of what is left), so they are always the
+          // same width and the logo is exactly centred no matter how many icons
+          // sit on either side. `justify-center` keeps that true even on a
+          // 320px screen, where the tracks are a few pixels wider than the row
+          // and spill into the container's side padding rather than pushing the
+          // logo off-centre. The template is inert from md up, where the row is
+          // the original flex layout again.
+          className={`${CONTENT_CONTAINER} grid ${NAV_HEIGHT} items-center justify-center md:flex md:justify-between`}
+          style={{
+            gridTemplateColumns: "minmax(88px,1fr) auto minmax(88px,1fr)",
+            // Faded-out controls must not stay clickable over the footer slide.
+            pointerEvents: hidden ? "none" : undefined,
+          }}
           initial={false}
-animate={{ opacity: hidden ? 0 : 1, y: hidden ? -24 : 0 }}
-          // Faded-out controls must not stay clickable over the footer slide.
-          style={{ pointerEvents: hidden ? "none" : undefined }}
+          animate={{ opacity: hidden ? 0 : 1, y: hidden ? -24 : 0 }}
           transition={reduceMotion ? { duration: 0.01 } : TRANSITION_SLOW}
         >
           <button
@@ -167,7 +179,7 @@ animate={{ opacity: hidden ? 0 : 1, y: hidden ? -24 : 0 }}
             aria-label="Open menu"
             aria-expanded={openPanel === "menu"}
             onClick={() => toggle("menu")}
-            className={iconButtonClass}
+            className={`${iconButtonClass} justify-self-start`}
           >
             <MenuMorphIcon open={openPanel === "menu"} />
           </button>
@@ -181,7 +193,7 @@ animate={{ opacity: hidden ? 0 : 1, y: hidden ? -24 : 0 }}
             ZUHA&apos;S
           </Link>
 
-          <div className="flex items-center">
+          <div className="flex items-center justify-end">
             <button
               type="button"
               aria-label="Search"
@@ -191,12 +203,20 @@ animate={{ opacity: hidden ? 0 : 1, y: hidden ? -24 : 0 }}
             >
               <SearchIcon />
             </button>
-{/*
+            {/*
               Phase 7: the same icon leads to /login when signed out and
               /account once there is a session. It takes the bar's own icon
               styling so it stays legible over the homepage slides.
+
+              Mobile only removes it: below md the wrapper is display:none, so
+              the link leaves the layout, the focus order and the accessibility
+              tree entirely (no ghost tab stop) and the two remaining icons
+              balance the hamburger on the left. Account stays reachable from
+              the hamburger menu, which is unchanged.
             */}
-            <AuthNavLink className={iconButtonClass} />
+            <span className="hidden md:flex">
+              <AuthNavLink className={iconButtonClass} />
+            </span>
             <button
               type="button"
               aria-label={count > 0 ? `Cart, ${count} items` : "Cart, empty"}
