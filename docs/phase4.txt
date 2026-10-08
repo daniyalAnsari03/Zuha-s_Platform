@@ -1,0 +1,28 @@
+Read the full project knowledge/context first (ZUHA'S spec). Then build PHASE 4 — Product Listing Page.
+
+STEP 0 — Migration check (do this FIRST, before writing any code):
+- Open supabase/migrations/001_ini_schema.sql and inspect the `products` table.
+- Required columns for Phase 4: name, price, discount_price, images (gallery), category_id / sub_category_id, sizes (free-text), color (free-text), low_stock_threshold, created_at.
+- If ALL of these already exist, do NOT create any migration.
+- If any column is missing (e.g. `color`), create ONLY a new migration file (e.g. 003_add_product_color.sql) adding just the missing columns. Do NOT modify 001 or 002.
+- Do NOT run any migration. Show me the SQL and wait for my confirmation.
+
+STEP 1 — Product Listing Page (fully responsive: mobile, tablet, desktop):
+- Grid: desktop 4 per row, tablet 3, mobile 2.
+- Card: product image, name, price below.
+- If discount_price exists: show original price with strikethrough next to discounted price, plus an auto-calculated "X% OFF" badge.
+- Desktop hover on a card reveals: wishlist (heart) icon, quick-view (eye) icon, and an "Add to Cart" option under the image. (Wishlist/quick-view/cart logic comes in later phases, so only build the UI hooks/placeholders for now.)
+- Clicking the card navigates to the product detail page route (page itself is Phase 5).
+- Filters: price, size, color.
+  - Size: admin enters free-text like "S, M, L". Parse by comma, trim, and build unique filter options from all products' sizes. Display sizes with " | " separator (e.g. S | M | L).
+  - Color: admin enters free-text like "Black, Red". Parse the same way (comma-separated, trimmed, unique) and let the user select a color to filter.
+  - Price: range filter.
+- Sort: price (low→high, high→low) and newest.
+- Fetch data from Supabase. Listing route must work for both sub-category listings and direct top-level listings (Bag's / Jewellery skip the sub-category page).
+
+Rules:
+- Stack: Next.js, TypeScript, React, Tailwind CSS, Framer Motion, Supabase only.
+- Colors: white background, black text, plum accents (--color-plum #4a2040).
+- Do not invent extra features, fields, or pages beyond this spec.
+- No GitHub push, deploy, or destructive DB operations without my explicit confirmation.
+- Build only Phase 4, then stop and tell me what was done.

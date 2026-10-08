@@ -1,0 +1,32 @@
+Make the whole admin dashboard feel fast: sidebar navigation, every list page, every button, add/edit/delete, saves, and especially image uploads. Admin side only; do not change the customer storefront in this task. Do not change any UI, layout, colors or the existing animations. Security must not weaken: requireAdmin() stays inside every admin server action and every admin page/layout, writes keep going through server actions with the service-role client, and nothing from admin gets cached across users.
+
+1. NAVIGATION (clicking sidebar options is slow)
+- Find why each admin page takes long to open: sequential Supabase queries, repeated auth/admin-allowlist lookups, heavy client bundles, missing loading states.
+- Make the auth/admin check run ONCE per request: wrap requireAdmin()/getUser()/the admin_emails allowlist read in React cache() so layout + page + actions do not repeat the same queries within one request. Keep it fail-closed.
+- Run independent queries in parallel with Promise.all on every admin page (dashboard home, categories, products, inventory, orders, customers, analytics, announcements, team, settings).
+- Select only the columns each admin list needs; paginate or limit large lists (orders, customers, products) with a sensible page size and a simple "load more"/pagination control that matches the current UI style.
+- Add a lightweight loading.tsx skeleton for every admin route so clicking a sidebar item gives instant feedback, plus a pending/active state on the clicked sidebar item. Sidebar links must use next/link with prefetch.
+- Dynamically import heavy admin-only client code (recharts in Analytics, rich dialogs and forms) with next/dynamic so they do not load on every admin page.
+- Admin pages must always show fresh data (no stale cache for admin reads); only the storefront uses the tagged cache. Keep the existing storefront revalidation calls in the admin actions unchanged.
+
+2. BUTTONS, ADD, EDIT, DELETE, SAVE (everything feels slow)
+- Every button that triggers a server action must show an instant pending state (disabled + small spinner or "Saving...") using useTransition/useFormStatus, so the click feels immediate and double-submits are blocked.
+- After a save/add/delete, update the UI right away from the action's returned data (optimistic update or local state update) instead of waiting for a full router.refresh and full page re-fetch. Revalidate only what is needed (the specific path and the storefront tags), not the whole admin.
+- In server actions, run independent steps in parallel (for example storefront cache invalidation and any follow-up reads) and do not await work that the response does not need.
+- Remove redundant queries inside actions (re-reading the same row several times, extra existence checks that the database constraint already covers) without changing behavior or error messages.
+
+3. IMAGE UPLOADS (slow to appear, slow to change, slow to save)
+- Show a local preview instantly the moment a file is chosen (URL.createObjectURL), before the upload finishes. Revoke the object URL when done.
+- Upload directly from the browser to Supabase Storage using the existing signed upload URL flow, with a visible progress indicator. Do not send the file through a server action body.
+- For multi-image product galleries, upload files in parallel (limit concurrency to about 3) and show each image's own progress; allow saving only when all uploads are done.
+- Request the signed upload URL and run validation (type jpeg/png/webp, max 5 MB) as quickly as possible; do not make extra server round-trips per file beyond the one signed-URL request.
+- Do NOT compress, resize or re-encode the original file: uploads must stay at original quality.
+- After upload, use the returned public URL directly in the form state; do not refetch the whole page. Replacing an image must swap the preview immediately, and deleting the old file from storage must happen in the background, not block the save.
+- Saving a category or product that has already-uploaded images should only write the URLs (fast), not re-upload anything.
+- Keep the displayed images in admin lists small: use next/image with proper sizes (thumbnail size) in admin tables and cards instead of loading full originals.
+
+4. SAFETY RULES
+- Do not change the database schema, do not run SQL, do not push to GitHub, do not deploy.
+- Do NOT run npm run build and do NOT start or restart the dev server on port 3000.
+- Run npm run typecheck and npm run lint only.
+- At the end report: per-file changes, the root causes you found for slow sidebar navigation, slow uploads and slow saves, which admin routes now have loading skeletons, which pages were paginated and their page size, and anything you chose not to do and why.

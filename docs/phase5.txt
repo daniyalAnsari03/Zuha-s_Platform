@@ -1,0 +1,28 @@
+First read AGENTS.md fully (source of truth). Then build PHASE 5: Quick View + Product Detail Page. Build only this phase, nothing extra.
+
+1) Shared component
+- Create ONE shared "ProductDetailContent" component used by both the quick-view modal and the product detail page, so the content/layout is exactly identical in both (no differences).
+- Content: all product images (gallery with thumbnails + main image), name, description, price (if discount price exists: original price with strikethrough + discounted price + auto-calculated "X% OFF" badge), sizes (show exactly the free-text sizes the admin typed, as selectable options), quantity selector (min 1), "Add to Cart" button, "Buy It Now" button.
+- Add to Cart: solid plum background, white text. Buy It Now: white background, plum border + plum text; on hover it animates to fill plum with white text, and reverts on hover-out (Framer Motion or Tailwind transition).
+
+2) Quick View modal
+- The eye icon on the product card (Phase 4 hover icons) opens a popup/modal on the same page (no navigation).
+- Close via X button, backdrop click and ESC key. Lock body scroll while open. Smooth Framer Motion open/close animation.
+- Responsive: desktop = centered modal with gallery left and details right; tablet = smaller modal; mobile = full-screen sheet with stacked layout and scrollable content.
+
+3) Product Detail Page
+- Clicking the product card itself (not the eye/heart/add-to-cart icons) navigates to a separate full product detail page (follow the existing routing conventions of the project, with a slug-based route).
+- It uses the same ProductDetailContent, plus the existing non-homepage rules: breadcrumb (HOME > category > sub-category > product name; each part clickable except the last; Bag's/Jewellery have no sub-category), normal (not full-screen) footer, navbar with no border line and comfortable spacing below it.
+- Data comes from Supabase like the listing page; use the dev-fallbacks only if the DB is empty, like earlier phases.
+
+4) Button behavior in this phase
+- Buy It Now: skips the cart and navigates to the checkout route for that product with its quantity (e.g. /checkout with product + qty in the URL). The checkout page itself is Phase 7, so do NOT build it now.
+- Add to Cart and wishlist (heart): UI only for now, leave a clear TODO. Do NOT build cart state, cart popup or wishlist logic (that is Phase 6).
+
+Rules:
+- Fully responsive on mobile, tablet and desktop, with smooth animations on desktop and touch.
+- Do not change any unrelated page/component. Do not invent extra features, fields or pages.
+- No SQL changes needed; if you think a DB change is required, stop and ask first.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md progress to mark Phase 5 done.
+- At the end give a short summary: files created/changed and how to test (quick view, detail page, Buy It Now).

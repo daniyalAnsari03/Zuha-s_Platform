@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="bags-base" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#efe9e2"/>
+      <stop offset="0.55" stop-color="#ded2c4"/>
+      <stop offset="1" stop-color="#c3b19e"/>
+    </linearGradient>
+    <radialGradient id="bags-light" cx="0.5" cy="0.3" r="0.76">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.68"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#bags-base)"/>
+  <path d="M430 700 h340 l40 520 h-420 Z" fill="#a98f74" opacity="0.28"/>
+  <path d="M520 700 a80 80 0 0 1 160 0" fill="none" stroke="#a98f74" stroke-opacity="0.4" stroke-width="26" stroke-linecap="round"/>
+  <circle cx="600" cy="760" r="250" fill="#ffffff" opacity="0.18"/>
+  <path d="M-100 1500 L820 660 L1300 660 L1300 820 L860 820 L-100 1580 Z" fill="#ffffff" opacity="0.12"/>
+  <rect width="1200" height="1600" fill="url(#bags-light)"/>
+</svg>

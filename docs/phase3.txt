@@ -1,0 +1,29 @@
+Read AGENTS.md fully and follow it strictly. We are starting PHASE 3 only (Sub-Category Page). Do not build any other phase (no product listing, product pages, hamburger panel, search/cart popups, auth).
+
+1. ROUTE LOGIC
+- /category/[slug] is where the homepage slides already link.
+- If the category has active sub-categories (Women's, Men's, Kid's): show the sub-category page described below.
+- If it has NO sub-categories (Bag's, Jewellery): this will become the product listing in Phase 4. For now render only a minimal clean placeholder (category name + "Products coming soon") that is easy to replace. Do not build the listing.
+- Unknown slug: Next.js notFound().
+- Each sub-category card links to /category/[slug]/[subSlug]. Do NOT build that destination page (Phase 4); only the links.
+
+2. SUB-CATEGORY PAGE (NOT a full-screen slide design)
+- White background, black text. Navbar on top, normal (not hidden, not over an image). The announcement bar stays homepage-only per the spec, so do not show it here. Make sure navbar icons and logo are clearly readable on the white page (the homepage uses a blend-mode style; verify it renders black on white, otherwise use plain black on this page).
+- A simple page heading with the category name (assumption, mention it in your report), then the carousel.
+- Horizontal side-scrolling row of CIRCULAR cards: circular image + name underneath, NOTHING else on the card.
+- Cards visible at once: desktop multiple (about 5), tablet fewer (about 3), mobile exactly 1 card at a time (centered).
+- Left/right arrow buttons on desktop AND mobile (min 44px touch targets). Disable or fade an arrow at the ends. Arrows scroll by one page of cards (or one card on mobile).
+- Smooth scrolling with scroll-snap; touch swipe, trackpad horizontal scroll and keyboard (left/right) must work. Hide the native scrollbar.
+- Sub-categories use a SINGLE image (image_url). Data from the sub_categories table (is_active = true, ordered by sort_order) filtered by the category. Fully dynamic: adding/removing sub-categories updates the row automatically.
+- Responsive on mobile, tablet and desktop. Use Framer Motion only where it adds value (e.g. subtle hover/entry), keep it light.
+
+3. DEV FALLBACKS (temporary)
+- Put fallback sub-categories in the SAME clearly marked file src/lib/dev-fallbacks.ts, used only when the sub_categories table returns zero rows for that category: about 6 per category for Women's (e.g. Casual, Formal, Party, Winter, Bridal, Lounge), Men's (e.g. Casual, Formal, Shalwar Kameez, Winter, Kurta, Sports) and Kid's (e.g. Boys, Girls, Infant, Casual, Festive, Winter). Make simple neutral local placeholder images in public/placeholders/ (SVG, circular-friendly). Real DB data always wins.
+- Fallback only applies when the category itself comes from the DB or from the fallback categories, so the page works in both situations.
+- Do NOT create or run any migration or SQL. Do not touch the database.
+
+4. QUALITY
+- Clean componentized code (src/components/category). Reuse existing Navbar and types.
+- Run npm run build, lint and typecheck and fix everything. CLI-only, no screenshots. Do NOT push to GitHub or deploy.
+
+When finished tell me: (a) what was built, (b) any ambiguity and how you handled it, (c) confirm no migration is needed.

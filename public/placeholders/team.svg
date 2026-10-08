@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" width="800" height="800" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="team-base" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#f6f4f4"/>
+      <stop offset="0.55" stop-color="#e8e3e6"/>
+      <stop offset="1" stop-color="#cfc4cc"/>
+    </linearGradient>
+    <linearGradient id="team-figure" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#7a3570" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#4a2040" stop-opacity="0.2"/>
+    </linearGradient>
+    <radialGradient id="team-light" cx="0.5" cy="0.28" r="0.78">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.68"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="800" height="800" fill="url(#team-base)"/>
+  <circle cx="400" cy="286" r="126" fill="url(#team-figure)"/>
+  <path d="M400 438c-138 0-250 90-268 214-3 20 12 38 32 38h472c20 0 35-18 32-38-18-124-130-214-268-214z" fill="url(#team-figure)"/>
+  <rect width="800" height="800" fill="url(#team-light)"/>
+</svg>

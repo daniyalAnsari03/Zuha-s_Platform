@@ -1,0 +1,33 @@
+First read AGENTS.md fully and follow it strictly. We are starting PHASE 1 only (Foundation & Design System). Do not build any other phase or page.
+
+Tasks:
+
+1. PROJECT SETUP
+- Scaffold a Next.js (App Router) + TypeScript + Tailwind CSS project in the CURRENT folder (not a subfolder). The folder name has a space and an apostrophe, so set the package name to "zuhas" manually if create-next-app complains.
+- Install: framer-motion, @supabase/supabase-js, @supabase/ssr.
+- Use a clean structure: src/app, src/components (ui, layout, etc.), src/lib (supabase clients, utils), src/types.
+
+2. DESIGN SYSTEM
+- In globals.css / Tailwind config define: --color-plum #4a2040, --color-plum-dark #3a1833, --color-plum-light #7a3570. White background, black text by default. Expose them as Tailwind colors (plum, plum-dark, plum-light).
+- Fonts via next/font: Playfair Display (headings) and Inter (body), applied site-wide.
+- Create reusable components in src/components/ui:
+  - AddToCartButton: solid plum bg, white text, hover plum-dark.
+  - BuyItNowButton: white bg, plum border + plum text; on hover animate to plum fill with white text (smooth, Framer Motion or CSS transition); revert to white on hover-out.
+  - Both must work well on touch devices and be responsive.
+- Keep app/page.tsx as a simple placeholder only (just the site name). No extra pages.
+
+3. SUPABASE SETUP
+- Create src/lib/supabase/client.ts (browser) and server.ts (server) helpers.
+- Create .env.local with placeholders for NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, plus .env.example. Make sure .env.local is in .gitignore.
+
+4. DATABASE MIGRATION
+- Create supabase/migrations/001_init_schema.sql with tables: categories, sub_categories, products (incl. price, discount_price, sizes as free text, stock_quantity, low_stock_threshold, images array), orders, order_items, customers, announcements, team_members, settings. Include created_at timestamps, foreign keys, and order status values: Order Placed, Order Confirmed, Processing, Shipped, Delivered, Cancelled.
+- Add sensible Row Level Security: public read for categories/sub_categories/products/announcements/team_members; users see only their own orders and customer row; guest checkout must still be able to place orders; management writes admin-only.
+- Add storage buckets (product-images, team-images, category-images) with public read in the same or a second migration file.
+- Do NOT run any SQL or touch the database yourself.
+
+5. VERIFY
+- Run npm run build, lint, and type-check, and fix any errors. (You are CLI-only, so do not ask for screenshots.)
+- Do NOT push to GitHub or deploy.
+
+When finished, give me: (a) exact migration file name(s) I must run in the Supabase SQL Editor, (b) which .env.local values I need to fill in, and (c) a short summary of what was built.

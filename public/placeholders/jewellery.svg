@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="jewellery-base" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#f4f0ee"/>
+      <stop offset="0.55" stop-color="#e5dbd6"/>
+      <stop offset="1" stop-color="#cbbaa8"/>
+    </linearGradient>
+    <radialGradient id="jewellery-light" cx="0.5" cy="0.32" r="0.72">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#jewellery-base)"/>
+  <circle cx="600" cy="820" r="300" fill="#ffffff" opacity="0.3"/>
+  <path d="M600 640 l150 180 -150 180 -150 -180 Z" fill="#c9a76a" opacity="0.3"/>
+  <path d="M600 640 l150 180 -150 180 -150 -180 Z" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="6"/>
+  <circle cx="600" cy="560" r="46" fill="#ffffff" opacity="0.45"/>
+  <circle cx="380" cy="1120" r="150" fill="#ffffff" opacity="0.14"/>
+  <path d="M-100 1440 L760 680 L1300 680 L1300 840 L820 840 L-100 1580 Z" fill="#ffffff" opacity="0.12"/>
+  <rect width="1200" height="1600" fill="url(#jewellery-light)"/>
+</svg>

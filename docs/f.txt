@@ -1,0 +1,26 @@
+TASK: Create a local git repository for this project, commit it, and push it ONCE to my GitHub repo. The user has explicitly confirmed this one push to this exact URL: https://github.com/daniyalAnsari03/Zuha-s_Platform.git
+
+STEPS:
+1. Check whether a .git folder already exists. If it does, do not re-initialize; run `git status`, `git remote -v` and `git log --oneline -5`, report them, and continue only if it is safe.
+2. Check .gitignore. It must ignore at least: node_modules, .next, .env, .env.*, tsconfig.tsbuildinfo, *.log, .DS_Store, and any other build/cache output. Keep a committed .env.example only if one already exists and contains NO real values. Fix .gitignore if needed.
+3. SECRET SCAN BEFORE COMMITTING (mandatory): search the whole project (excluding node_modules and .next) for secrets: the actual values from .env.local, strings starting with "eyJ" (JWTs), "sb_secret_", "service_role" next to a literal key, "SUPABASE_SERVICE_ROLE_KEY=" followed by a value, private keys, OAuth client secrets, hard-coded passwords or tokens. Environment variable NAMES in code (process.env.SUPABASE_SERVICE_ROLE_KEY) are fine; literal VALUES are not. If any real secret is found in a file that would be committed, STOP, do not commit or push, and report the file and line (do not print the secret value itself, only mask it).
+4. Run `git init` (if needed), set the default branch to main, `git add .`, then run `git status` and list every file that will be committed. Verify there is NO .env file, no node_modules, no .next, no tsbuildinfo, no uploaded user images or database dumps. If anything like that is staged, unstage it and fix .gitignore.
+5. Commit with the message: "Initial commit: ZUHA'S e-commerce platform".
+6. Remote: if `origin` does not exist run `git remote add origin https://github.com/daniyalAnsari03/Zuha-s_Platform.git`; if it exists with a different URL, STOP and report instead of changing it.
+7. Push: `git push -u origin main`. NEVER use --force or --force-with-lease. If the push is rejected (for example because the GitHub repo already has a README or other commits) or asks for authentication that you cannot complete, STOP and report the exact error message; do not try to work around it with force, rebase or merge on your own.
+8. After a successful push run `git log --oneline -3` and `git status` and report them.
+
+RULES:
+- Do NOT deploy anywhere, do NOT connect Vercel/Netlify, do NOT create GitHub Actions or any CI files.
+- Do NOT run SQL or touch Supabase.
+- Do NOT modify any source file. Only .gitignore may change.
+- Do NOT start, stop or restart any dev server and do NOT touch the .next folder.
+- Push exactly once, to the URL above, to the main branch.
+
+REPORT BACK (plain text):
+- whether a .git folder already existed
+- what you changed in .gitignore
+- result of the secret scan (files checked, anything found, values masked)
+- number of files committed, and confirmation that no .env file is included
+- the commit hash
+- the push result (success or the exact error)

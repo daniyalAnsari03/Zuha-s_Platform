@@ -1,0 +1,26 @@
+First read AGENTS.md fully (source of truth). Then build PHASE 8: Footer & Team page. Build only this phase, nothing extra. Fully responsive on mobile, tablet and desktop, smooth animations on desktop and touch.
+
+1) FOOTER (review and complete the existing footer from Phase 2, do not create a second one)
+- "Z U H A ' S" wordmark in plum color at the very top of the footer, then the standard footer content (links, contact, socials), plus a "Team" button/link that goes to /team.
+- A "Contact" link lives ONLY in the footer. It must NOT appear in the hamburger menu.
+- The same footer content is used on the homepage (final full-screen slide) and as a normal footer on all other pages. Keep one shared source for the footer content so both stay identical.
+- Footer contact details and social links come from one single config constant for now (placeholder values I will replace later). Do not read them from the settings table (it is admin-only readable); no DB changes.
+
+2) CONTACT PAGE (/contact)
+- Simple page: breadcrumb (HOME > CONTACT), the contact details (email, phone, address, social links) from the same config constant, normal footer. No form, no backend.
+
+3) TEAM PAGE (/team)
+- Opened by the footer "Team" button. Breadcrumb (HOME > TEAM), normal (not full-screen) footer, navbar without border line.
+- Shows team members as circular images with the name underneath, in a left-right carousel with navigation arrows on both desktop and mobile. Reuse the same circular-card carousel component/styling as the sub-category page (desktop: multiple cards, tablet: fewer, mobile: 1 card at a time).
+- Do NOT dump all details on this page. Only circle image + name.
+- Clicking a member's circle opens their full detail (image, name, description/role) in a popup/modal on the same page. Close via X, backdrop click and ESC; lock body scroll while open; smooth Framer Motion animation; full-screen sheet on mobile.
+- Data from the team_members table (it is already publicly readable). If the table is empty, use temporary fallback data in src/lib/dev-fallbacks.ts, same approach as earlier phases. Empty state if nothing at all.
+- Dynamic: members added/removed in the DB (later by admin) must appear/disappear automatically.
+
+Rules:
+- Do not change unrelated pages/components. Do not invent extra features, fields or pages.
+- No SQL changes. If you think one is needed, stop and ask first.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md progress to mark Phase 8 done.
+- Run typecheck, lint and build, and fix anything you introduced.
+- Final summary: files created/changed and how to test (footer on homepage and inner pages, Contact link only in the footer, Team carousel, member popup).

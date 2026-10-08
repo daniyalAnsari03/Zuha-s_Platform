@@ -1,0 +1,41 @@
+First read AGENTS.md fully (source of truth), then read supabase/migrations/001 to the latest and the existing admin code from Phases 9A and 9B (requireAdmin(), admin service-role helper, ImageUpload, low-stock helper). Build PHASE 9C: the remaining admin pages. Build only this part.
+
+GENERAL: same rules as 9B. Every server action / admin data function calls requireAdmin() itself and uses the server-only service-role client, validates all inputs on the server, revalidates affected storefront pages after changes, and the UI stays simple, clean and fully responsive.
+
+1) ORDERS (/admin/orders and /admin/orders/[id])
+- List view, newest first, with order number, date, customer name, total, status; filter by status and search by order number.
+- Order detail view: items (image, name, size, price, quantity), totals, and the customer's delivery details (name, phone, address, city, email). Cash on Delivery noted.
+- Status update dropdown with exactly these statuses: Order Placed, Order Confirmed, Processing, Shipped, Delivered, Cancelled. Update through a server action (customers cannot change status; the orders UPDATE policy is admin-only and writes use the service role). Show success/error feedback and a status badge.
+
+2) CUSTOMERS (/admin/customers)
+- Read-only list of signed-up users only (not guest checkouts): name, email, phone, signed-up date. Simple search. Nothing else.
+
+3) ANALYTICS (/admin/analytics) — exactly this, nothing more
+- 4 stat cards: Total Sales, Total Orders, Total Customers, Average Order Value.
+- Sales-over-time line chart with a 7 days / 30 days / 12 months filter.
+- Top 5 best-selling products.
+- Orders-by-status summary.
+- Cancelled orders are excluded from sales numbers. Group days/months using the Asia/Karachi time zone. Compute on the server from orders/order_items. You may add one lightweight chart library (e.g. recharts) if needed; tell me which one in the final summary. Currency shown consistently with the storefront.
+
+4) ANNOUNCEMENT BAR (/admin/announcements)
+- Add and remove multiple announcements (text only). They appear in the homepage ticker; the ticker updates automatically.
+
+5) TEAM MEMBERS (/admin/team)
+- Add / edit / delete members with image (ImageUpload), name and description/role (match the existing team_members columns). Feeds the footer's Team page (circles + popup) automatically.
+
+6) DASHBOARD HOME (/admin)
+- Order-status summary: counts for Order Placed, Order Confirmed, Processing, Shipped, Delivered, Cancelled, with a "View all orders" link.
+- Recent orders list (latest 5-10) with its own "View all orders" link.
+- Inventory / low-stock section below: products at or below their threshold (reuse the shared low-stock helper from 9B), each linking to Inventory.
+
+7) SETTINGS (/admin/settings) — my proposal, build exactly this
+- Fields: store name, contact email, phone, address, and social links (Instagram, Facebook, TikTok, WhatsApp — each optional).
+- The footer and /contact page must read these values and fall back to src/lib/site-config.ts when a field is empty. Because the existing settings table is admin-only readable, create a separate small public-readable table (or view) for these public store details through a new numbered migration, with select-only grants for anon/authenticated and RLS, and writes only via the service role. Do NOT expose admin_emails publicly.
+
+Rules:
+- Do not run SQL. Create numbered migrations and show me each file name and FULL content in the final message for review before I run them manually.
+- Do not change storefront behavior except for reading the new data and revalidation. Do not invent extra features, pages or fields.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md: mark Phase 9C and Phase 9 done.
+- Run typecheck, lint and build, and fix anything you introduced.
+- Final summary: files created/changed, migrations (name + full content), chart library used, and how to test each page.

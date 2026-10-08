@@ -1,0 +1,31 @@
+First read AGENTS.md fully (source of truth). Then build PHASE 6: Wishlist, Cart and Search (plus the hamburger menu content). Build only this phase, nothing extra. Fully responsive on mobile, tablet and desktop, smooth animations on desktop and touch.
+
+1) Shared state (no login required, guests must be able to use everything)
+- Create a WishlistProvider and a CartProvider (React context) stored in localStorage, wrapped in the site layout next to the existing QuickViewProvider. Must be SSR/hydration safe (no hydration mismatch warnings).
+- Cart item = product id, name, image, effective price (discount price if exists), size (if any), quantity. Adding the same product + same size again increases its quantity.
+
+2) Wishlist
+- Heart icon (product card hover, quick view, product detail page) toggles the product in the wishlist; filled heart when saved.
+- "Wishlist" link in the hamburger menu opens a Wishlist page that uses the exact same grid/card layout as the product listing page (same columns: 4 desktop, 3 tablet, 2 mobile; same card look and hover icons). Include the standard breadcrumb (HOME > WISHLIST), normal footer, and a simple empty state.
+
+3) Cart
+- Wire the Add to Cart buttons (card hover "Add to Cart", quick view, detail page; the TODOs left in Phase 5). Quantity selected in quick view/detail is used.
+- If a product has sizes and no size was selected, then on the card hover Add to Cart open the quick view so the customer can pick a size; in quick view and detail page require a size before adding (show a small inline message).
+- Navbar cart icon shows a count badge = total quantity of items in cart.
+- Clicking the cart icon opens a popup/dropdown directly below the navbar (NOT a new page) showing the cart items (image, name, size, price, quantity, with quantity +/- and a remove button) and a total, plus a "Checkout" button that goes to /checkout (checkout page itself is Phase 7, do NOT build it). Empty state when the cart is empty. Closes on outside click, ESC and route change. On mobile it should fit the screen width.
+
+4) Search
+- Clicking the search icon opens a popup/dropdown directly below the navbar (NOT a new page) with an input.
+- Typing a product name shows matching products (image, name, price); typing a category name shows matching categories (top-level and sub-categories) as results. Debounce the input, show a "no results" state, and make each result clickable (product -> its detail page, category -> its page). Closes on outside click, ESC and route change.
+
+5) Hamburger menu
+- The menu must contain exactly: Women's, Men's, Kid's, Bag's, Jewellery, Account, Wishlist. Women's/Men's/Kid's have their sub-categories nested underneath. Everything is dynamic from the database, so whatever admin adds/removes is reflected automatically. Do NOT put Contact in this menu (contact link is only in the footer).
+- Account links to the login/account route; the login/account pages are Phase 7, so do NOT build them now.
+- If a hamburger menu already exists from earlier phases, update it to match this exactly instead of creating a second one.
+
+Rules:
+- Do not change unrelated pages/components. Do not invent extra features, fields or pages.
+- No SQL changes needed; if you think a DB change is required, stop and ask first.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md progress to mark Phase 6 done.
+- At the end give a short summary: files created/changed and how to test (wishlist, cart add/badge/popup, search for product and category, hamburger menu).

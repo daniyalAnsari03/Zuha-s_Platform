@@ -1,0 +1,45 @@
+PHASE 10 — Final QA & Polish (audit + fix pass)
+
+First, read AGENTS.md fully (it is the source of truth) and re-read the Phase 10 section of the spec. This phase is about verifying and fixing what already exists. Do NOT add new features, pages, fields, or UI that are not in AGENTS.md. If something looks like it needs a new feature, or if something conflicts with AGENTS.md, list it in the final report and ask instead of deciding yourself.
+
+HARD RULES
+- Do NOT run SQL, do NOT run migrations, do NOT push to GitHub, do NOT deploy.
+- Do NOT start or restart the dev server on port 3000 and do NOT overwrite its .next folder. For build checks use a separate distDir (or run only typecheck + lint).
+- If a fix needs a database change, write a new numbered SQL file in supabase/migrations/ (any new table must also grant service_role), show its full content in the report, and do not run it.
+- Stock is NOT reduced when an order is placed (not in spec). Do not implement it.
+- Fix real bugs you find. Keep fixes minimal and consistent with the existing design system (white background, black text, plum accents, current fonts, motion rules in src/lib/motion.ts).
+
+AUDIT AREAS (go through each one, read the actual code, and fix what is wrong)
+
+1) Responsiveness (mobile ~375px, tablet ~768px, desktop 1280px+)
+Check every storefront page and component: homepage slider + footer slide, announcement ticker, navbar, hamburger menu, search popup, cart popup, sub-category page, product listing (4 / 3 / 2 columns), filter drawer, quick view modal, product detail page (desktop 2-column grid + sticky info, below 1024px swipe slider + full-screen viewer), wishlist page, checkout, order confirmation, login/signup, Account + My Orders, footer, Contact page, Team page + member popup. Also check every admin page (sidebar drawer on mobile, tables, forms, dialogs). Look for: horizontal overflow, fixed widths, text clipping, tap targets too small, popups taller than the viewport without scrolling, wrong breakpoints, missing sizes on images, anything that breaks at 320px width.
+
+2) Animations and touch behavior
+Verify that all animations use the shared motion constants, there are no layout shifts from scroll lock, hover-only behavior is guarded so touch devices never get stuck hover states, the second-image crossfade is desktop-hover only, Buy It Now hover fill animates in and out correctly, Add to Cart styles are intact, and slider mechanics (one gesture = one slide, wheel/keyboard/touch, dot rail, footer as final slide, navbar hides on the footer slide) match AGENTS.md. Check for anything that could stutter (heavy work in scroll/animation handlers, missing will-change/transform-only animation, unnecessary re-renders in the slider).
+
+3) Dynamic content reflection
+Trace the code paths and confirm that adding, editing, or removing these in admin is reflected on the storefront everywhere they appear, with correct revalidation/caching so no stale data stays: top-level categories (homepage slides + dots, hamburger menu, search results, breadcrumbs), sub-categories (sub-category row, hamburger accordion, breadcrumbs), announcements (ticker on all pages), team members (Team carousel + member popup), products (listing, search, wishlist, cart, detail), settings/store details (footer, Contact). Confirm empty states look clean when there are zero rows (no crashes, no dummy data).
+
+4) Discount display
+Find every place a price is shown (listing card, quick view, detail page, wishlist, search results, cart popup, checkout summary, confirmation page, My Orders, admin where relevant). Confirm the original price strikethrough + discounted price + auto-calculated "X% OFF" badge is correct and consistent wherever the spec requires it, and that the percentage is rounded sensibly. Use one shared price helper/component if there is not one already; remove duplicated logic.
+
+5) Order flow (code-level verification)
+Trace both flows end to end: Add to Cart → Cart popup → Checkout → Order Confirmation, and Buy It Now → Checkout → Order Confirmation, each with and without login. Verify: required fields (Name, Address, Phone compulsory, plus Email and City) are validated on client and server; size and color are required when the product has them; COD only; the order summary shows image, name, price, quantity, total; server-side order creation uses the service-role key; guest orders work; logged-in orders are linked via user_id; My Orders shows only the current user's own orders; the confirmation page shows order number + thank-you message; cart clears after a successful order; double-submit is prevented; error messages are clear. Also check whether the confirmation_token approach (migration 012_order_confirmation_token.sql) is implemented in code and consistent with the migration file — if the code or the migration file is missing or inconsistent, report exactly what is missing and do not run anything.
+
+6) Security and data safety sweep
+Confirm every admin action calls requireAdmin(), /admin has noindex, there is no admin link on the storefront, service-role key is only used server-side, and no private table is readable by anon. Report only; fix clear bugs.
+
+7) Cleanup
+Remove unused components/imports/dead code, leftover console.log statements, and leftover placeholder or dummy data. Make sure no hardcoded test data remains in the storefront. Confirm no layout/typecheck/lint warnings remain.
+
+VERIFICATION (run these)
+- npm run typecheck (or tsc --noEmit) and npm run lint — must pass with zero errors.
+- A production build using a separate distDir (not the dev server's .next) — must pass.
+- Update AGENTS.md only if you changed documented behavior.
+
+FINAL REPORT FORMAT (keep it short and practical)
+1. Bugs found and fixed (file + one-line description each).
+2. Things you found but did NOT change because they need my decision (with options).
+3. New migration files, if any (full SQL shown, not run).
+4. Typecheck / lint / build results.
+5. A short manual test checklist of anything that can only be verified in a real browser (do not ask for screenshots).

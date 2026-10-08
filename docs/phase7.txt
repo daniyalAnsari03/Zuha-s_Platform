@@ -1,0 +1,44 @@
+First read AGENTS.md fully (source of truth). Then build PHASE 7: Checkout, Orders & Account. Build only this phase, nothing extra. Fully responsive on mobile, tablet and desktop. Standard non-homepage rules apply (breadcrumb, normal footer, navbar without border line).
+
+SECURITY DESIGN (mandatory)
+- Orders are created ONLY on the server (server action or route handler) using the Supabase service-role key. The service-role key must live only in server-side env (.env.local, no NEXT_PUBLIC prefix) and must never reach client code.
+- The server must NOT trust prices or totals from the browser. It receives only product ids, sizes and quantities, re-fetches each product's current price (discount price if set) from the DB, calculates the total itself, generates the order number, and inserts the order and order_items. Reject inactive/missing products and invalid quantities.
+- If the request comes from a logged-in user, store their user_id on the order; guests have user_id null.
+
+MIGRATION (do NOT run SQL): first read 001_init_schema.sql, then create supabase/migrations/006_checkout_policies.sql that:
+- drops the policies "anyone can place an order" (orders INSERT), "anyone can create order items for a new order" (order_items INSERT), "users can update own orders" (orders UPDATE) and "anyone can create own guest customer" (customers INSERT), and replaces the orders UPDATE with an admin-only policy (is_admin()).
+- grants insert and update on orders, order_items and customers to service_role only (not anon, not authenticated).
+- if an order-number mechanism (column/sequence/function) is missing, adds it so order numbers are unique and human-friendly.
+- if signed-up users need a row in customers, handle that safely (inspect how 001 expects it; if unclear, stop and ask me).
+All statements idempotent. Show me the file name AND its full content in your final message so I can review before running it manually in the Supabase SQL Editor.
+
+1) CHECKOUT PAGE (/checkout)
+- Reached from the cart popup "Checkout" button (whole cart) and from Buy It Now (single product with product/qty/size params). Buy It Now must not touch the cart contents.
+- Cash on Delivery only, no online payment; show a clear "Cash on Delivery" note.
+- Required fields (all must be filled, with clear inline validation): Name, Address, Phone number, Email, City. Order cannot be placed without them.
+- Order summary: product image, name, size, price, quantity, line total and grand total.
+- Works fully without login. Guests and logged-in users can both order. If logged in, pre-fill name/email where known.
+- Empty cart / invalid Buy It Now params: friendly empty state with a link back to shop.
+- Place Order button with loading state, prevents double submit, shows server errors clearly.
+- After success: clear the cart (only if the order came from the cart) and redirect to the confirmation page.
+
+2) ORDER CONFIRMATION PAGE
+- Shows the order number and a thank-you message, plus a simple items/total summary.
+- Do NOT show phone, address or email on this page (order numbers could be guessed). Load data on the server by order number.
+
+3) AUTH (login is optional everywhere)
+- /login page: Google login and email/password signup/login both, using Supabase Auth. Include a short signup/login toggle, validation and error messages.
+- Tell me which Supabase dashboard / Google Cloud steps I must do manually for Google OAuth (redirect URLs etc.) in your final message; do not assume it is configured.
+- Navbar login icon: link to /login when logged out, to /account when logged in. Hamburger "Account" link behaves the same way. Logout available in the account area.
+
+4) ACCOUNT AREA (/account)
+- Only for logged-in users (redirect to /login otherwise).
+- "My Orders": list of the user's own orders (order number, date, status, total) with a detail view (items, status, delivery details). Each user sees only their own orders (enforced on the server by user_id, plus the existing RLS).
+- Status labels: Order Placed, Order Confirmed, Processing, Shipped, Delivered, Cancelled.
+
+Rules:
+- Do not change unrelated pages. Do not invent extra features, fields or pages. Admin login / dashboard is Phase 9, do NOT build it.
+- Do not run SQL. Do not push to GitHub, do not deploy.
+- Update AGENTS.md progress to mark Phase 7 done and note the security design (server-side order creation).
+- Run typecheck, lint and build, and fix anything you introduced.
+- Final summary: files created/changed, the migration file name + content, manual Google OAuth steps, and how to test (cart checkout, Buy It Now, guest and logged-in, My Orders).

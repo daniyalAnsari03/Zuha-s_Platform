@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="kids-base" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#f6efe6"/>
+      <stop offset="0.55" stop-color="#ebdccc"/>
+      <stop offset="1" stop-color="#d8c3ab"/>
+    </linearGradient>
+    <radialGradient id="kids-light" cx="0.5" cy="0.3" r="0.76">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.72"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="1600" fill="url(#kids-base)"/>
+  <circle cx="470" cy="760" r="230" fill="#ffffff" opacity="0.3"/>
+  <circle cx="790" cy="980" r="300" fill="#c8a882" opacity="0.22"/>
+  <circle cx="880" cy="600" r="120" fill="#ffffff" opacity="0.2"/>
+  <path d="M-100 1400 L640 660 L1300 660 L1300 820 L700 820 L-100 1560 Z" fill="#ffffff" opacity="0.14"/>
+  <rect width="1200" height="1600" fill="url(#kids-light)"/>
+</svg>

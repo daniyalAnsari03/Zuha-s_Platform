@@ -1,0 +1,258 @@
+@import "tailwindcss";
+
+/*
+ * `reveal:` turns a card control on for every screen that cannot be trusted
+ * to hover: the whole range below lg (under 1024px), and any device that
+ * reports `hover: none` at any width. The two media queries are OR-ed, so
+ * either one alone switches the control on - a resized desktop window, a
+ * devtools responsive view and a phone that still claims hover all match.
+ * A 1024px+ window with a real mouse matches neither and keeps hover only.
+ */
+@custom-variant reveal {
+  @media (max-width: 1023.98px) {
+    @slot;
+  }
+  @media (hover: none) {
+    @slot;
+  }
+}
+
+:root {
+  --color-plum: #4a2040;
+  --color-plum-dark: #3a1833;
+  --color-plum-light: #7a3570;
+}
+
+@theme inline {
+  --color-plum: var(--color-plum);
+  --color-plum-dark: var(--color-plum-dark);
+  --color-plum-light: var(--color-plum-light);
+
+  --color-background: #ffffff;
+  --color-foreground: #000000;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+}
+
+/*
+ * Reserve the classic scrollbar's width on every page. Every menu, drawer and
+ * modal locks the page with `overflow: hidden`; without this the scrollbar
+ * disappearing would shift the whole page sideways for the moment it is open.
+ * `scrollbar-gutter` keeps that space reserved, so the lock never moves the
+ * layout. (Overlay scrollbars reserve nothing, so this is a no-op there.)
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
+/*
+ * The shared motion palette, mirrored from `src/lib/motion.ts` so the plain CSS
+ * transitions (product-card image swap, accordions) use the exact same curves
+ * and durations as the Framer Motion animations.
+ */
+:root {
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --motion-duration-fast: 0.15s;
+  --motion-duration-card-image: 0.8s;
+  --motion-card-image-scale: 1.08;
+  --motion-duration-add-to-cart: 0.45s;
+  --motion-duration-icon-reveal: 0.35s;
+  --motion-duration-accordion: 0.4s;
+  --motion-icon-stagger: 0.06s;
+  --motion-icon-slide: 8px;
+}
+
+/*
+ * Product-card gallery hover, hover-capable (fine pointer) devices only. The
+ * second image is stacked over the first and exists only on those devices - on
+ * touch it is removed from the layout entirely, so only the first image shows.
+ *
+ * Two-image products: on hover the second image fades in while settling from a
+ * slight zoom (scale 1.08 -> 1) and the first fades out at the same time; on
+ * hover-out the pair returns with the same easing. One-image products keep the
+ * original pre-motion-pass hover: the first image settles into a zoom. The
+ * `.card-first` wrapper is scaled/faded, so the two states never interact.
+ *
+ * Values mirror `src/lib/motion.ts` (`MOTION_DURATION.imageSwap`,
+ * `CARD_IMAGE_SCALE`).
+ */
+.card-hover-second {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-first {
+    transition:
+      opacity var(--motion-duration-card-image) var(--motion-ease),
+      transform var(--motion-duration-card-image) var(--motion-ease);
+  }
+
+  .card-hover-second {
+    display: block;
+    opacity: 0;
+    transform: scale(var(--motion-card-image-scale));
+    transition:
+      opacity var(--motion-duration-card-image) var(--motion-ease),
+      transform var(--motion-duration-card-image) var(--motion-ease);
+  }
+
+  .group\/card:hover .card-hover-second,
+  .group\/card:focus-within .card-hover-second {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .group\/card:has(.card-hover-second):hover .card-first,
+  .group\/card:has(.card-hover-second):focus-within .card-first {
+    opacity: 0;
+  }
+
+  .group\/card:not(:has(.card-hover-second)):hover .card-first,
+  .group\/card:not(:has(.card-hover-second)):focus-within .card-first {
+    transform: scale(var(--motion-card-image-scale));
+  }
+}
+
+/*
+ * Product-card control reveal, desktop mouse only. The exact inverse of the
+ * `reveal:` variant, so it never fights it: a <1024px window or a touch device
+ * keeps every control static and always visible, and these rules do not apply
+ * there. Values mirror `src/lib/motion.ts` (`MOTION_DURATION.addToCartReveal`,
+ * `iconReveal`, `iconRevealStagger`, `CARD_ICON_SLIDE_PX`).
+ */
+@media (hover: hover) and (pointer: fine) and (min-width: 1024px) {
+  /* "Add to Cart": parked below the image, slides up on hover. Tailwind v4
+     drives `translate-y-*` through the individual `translate` property (not
+     `transform`), so that is what must be transitioned here. */
+  .card-add-to-cart-reveal {
+    transition:
+      opacity var(--motion-duration-add-to-cart) var(--motion-ease),
+      translate var(--motion-duration-add-to-cart) var(--motion-ease);
+  }
+
+  /* Heart / eye: fade in while sliding a short distance into place. */
+  .card-icon-reveal {
+    opacity: 0;
+    transform: translateY(var(--motion-icon-slide));
+    transition:
+      opacity var(--motion-duration-icon-reveal) var(--motion-ease),
+      transform var(--motion-duration-icon-reveal) var(--motion-ease),
+      color var(--motion-duration-fast) ease-out;
+  }
+
+  /* Enter: first icon at once, the second a beat later. Exit reverses: the
+     second leaves first, the first lingers behind it. */
+  .card-icon-reveal:first-child {
+    transition-delay: var(--motion-icon-stagger);
+  }
+
+  .group\/card:hover .card-icon-reveal,
+  .group\/card:focus-within .card-icon-reveal {
+    opacity: 1;
+    transform: translateY(0);
+    transition-delay: 0s;
+  }
+
+  .group\/card:hover .card-icon-reveal + .card-icon-reveal,
+  .group\/card:focus-within .card-icon-reveal + .card-icon-reveal {
+    transition-delay: var(--motion-icon-stagger);
+  }
+}
+
+/*
+ * Circle-card image zoom (sub-category row + Team carousel), hover-capable
+ * devices only: a tap must never leave the circle stuck zoomed. The class is
+ * only applied when motion is allowed (see `CircleCard`).
+ */
+@media (hover: hover) and (pointer: fine) {
+  .circle-card-zoom {
+    transition: transform 0.5s var(--motion-ease);
+  }
+
+  .group:hover .circle-card-zoom {
+    transform: scale(1.04);
+  }
+}
+
+/*
+ * Reduced-motion fallback for the plain CSS transitions and animations the
+ * Framer Motion `MotionConfig` cannot reach: every transition collapses to an
+ * instant state change (i.e. a plain fade where opacity is involved).
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/*
+ * The navbar floats over the full-bleed category slides with no background of
+ * its own; its colour comes from the adaptive header tone (`src/lib/
+ * header-tone.ts`), never from blending. The footer slide stays plain white
+ * with black text and the plum wordmark.
+ */
+
+/* Horizontal card rows keep the native scrollbar for accessibility, hide the
+   visual one. Scrolling stays native (touch, trackpad, scroll-snap). */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+/* Two identical halves side by side; translating by -50% loops seamlessly. */
+.ticker-track {
+  display: flex;
+  width: max-content;
+  white-space: nowrap;
+  animation: ticker-scroll 38s linear infinite;
+  will-change: transform;
+}
+
+/* Hover-pause is for real pointers only: on touch a tap would leave the
+   ticker frozen until the next tap. */
+@media (hover: hover) and (pointer: fine) {
+  .ticker-track:hover {
+    animation-play-state: paused;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track {
+    animation: none;
+  }
+}

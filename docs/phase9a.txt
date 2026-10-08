@@ -1,0 +1,27 @@
+First read AGENTS.md fully (source of truth), then read supabase/migrations/001 to 006 to understand the tables, the is_admin() function and the settings table structure. Build PHASE 9A: Admin foundation (auth guard, security layer, sidebar shell). Build only this part. The admin pages themselves (Categories, Products, Orders, etc.) come in later parts, do NOT build them now.
+
+1) Access control
+- Admin area lives under /admin. Access = logged in (existing Supabase Auth, Google or email) AND the user's email is in the admin allowlist (settings table, key admin_emails; inspect 001 and is_admin() to see how it is stored and match that exactly).
+- The /admin layout must check this on the server for every request. Not logged in: redirect to /login with a return path back to /admin. Logged in but not an admin: show a plain "Access denied" page with a link back to the shop; never reveal any admin UI or data.
+- Create a server-only helper requireAdmin() that verifies the session and the allowlist, and returns the user. EVERY admin server action or admin data function must call requireAdmin() itself. Never rely on the layout alone.
+- Admin reads and writes run on the server with the service-role client (the key must stay server-only, never imported into client components). Write a small admin Supabase helper for this, marked server-only.
+- Do NOT add any admin link to the storefront (not in navbar, hamburger menu or footer). Admin opens by typing /admin. Add noindex metadata to the whole /admin tree.
+
+2) Database
+- Do NOT run SQL. If the admin allowlist or table grants need a change, create the next numbered migration in supabase/migrations/ and show me its full content for review before I run it. Since admin writes use the service-role key, do not grant write privileges to anon or authenticated.
+- In your final message, give me the exact SQL snippet (separate from migrations, with a placeholder email) to add my own email to admin_emails, matched to the real settings table structure.
+
+3) Admin shell (simple, clean)
+- Sidebar layout, in this exact order: Dashboard, Categories, Products, Inventory, Orders, Customers, Analytics, Announcement Bar, Team Members, Settings.
+- Desktop: fixed sidebar on the left with content on the right. Tablet/mobile: sidebar collapses behind a menu button and opens as a drawer; closes after choosing an item. Highlight the active item.
+- Show the admin's email and a Logout button in the shell.
+- Each sidebar item opens its own route (/admin, /admin/categories, /admin/products, /admin/inventory, /admin/orders, /admin/customers, /admin/analytics, /admin/announcements, /admin/team, /admin/settings) with a simple "coming soon" placeholder page, so navigation can be tested now.
+- Use the same fonts and plum/white/black design system. Keep the UI minimal and uncluttered, no extra widgets. Admin pages do not use the storefront navbar, footer or announcement bar.
+- Fully responsive on mobile, tablet and desktop.
+
+Rules:
+- Do not change storefront pages/components. Do not invent extra features, pages or fields.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md: mark Phase 9A done and document the admin security design (requireAdmin on every action, service-role server only).
+- Run typecheck, lint and build, and fix anything you introduced.
+- Final summary: files created/changed, any migration (file name + full content), the SQL snippet to add my admin email, and how to test (not logged in, logged in non-admin, admin, sidebar on mobile).

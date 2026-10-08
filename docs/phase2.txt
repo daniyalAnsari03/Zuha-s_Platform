@@ -1,0 +1,42 @@
+Read AGENTS.md fully and follow it strictly. We are starting PHASE 2 only (Homepage). Do not build other phases (no sub-category page, product pages, hamburger menu panel, search/cart popups, or auth yet).
+
+1. ANNOUNCEMENT BAR
+- Top of the page. Text only, scrolling ticker (smooth infinite marquee), NO background color. Black text.
+- Data from the Supabase announcements table (is_active = true, respecting starts_at/ends_at), showing multiple announcements in the ticker.
+- Responsive, pauses gracefully on reduced-motion.
+
+2. NAVBAR
+- Directly below the announcement bar. NO background.
+- Left: hamburger icon. Center: logo "Z U H A ' S" (Playfair Display). Right: search, login, cart icons.
+- In this phase the icons are visual only (no popups, no menu panel, no auth, no cart logic). Leave clean hooks for later phases.
+- Fixed/visible across the homepage and all category slides. It must hide when the user reaches the footer slide, and come back when scrolling back up to the slides.
+- Icon and text color must stay readable over full-bleed images (no overlay text on slides, so use a subtle approach that works over images, such as a slight gradient behind the navbar or mix-blend, without adding a visible background bar).
+
+3. FULL-SCREEN CATEGORY SLIDER (no hero section)
+- Starts directly below the navbar and takes the full screen (use 100dvh, mobile-safe).
+- Stacked / cover-scroll animation: each next slide covers the previous one. Full-bleed images, NO overlay text, no category names on the slide.
+- Right-side vertical dot rail showing the current slide, clickable.
+- Must be smooth on: desktop mouse wheel, keyboard (arrow up/down, PageUp/PageDown), and mobile touch swipe.
+- ONE wheel gesture / one swipe = exactly ONE slide, with a clean landing every time (lock input during the transition, handle trackpad inertia properly). No half-way stuck states.
+- Slides come dynamically from the Supabase categories table (is_active = true, ordered by sort_order). Slides and dots update automatically when categories are added/removed.
+- Each category has a single image (image_url).
+- Clicking a slide navigates to /category/[slug] (just the link; the destination pages come in later phases, do not build them).
+- After the last category slide, the FOOTER is the final slide in the same stack with the same full-screen cover-scroll treatment.
+
+4. FOOTER (final slide)
+- "Z U H A ' S" wordmark in plum at the very top.
+- Below it standard footer content: link groups, contact info, social links, and a "Team" button (links to /team, page comes later). Contact link appears only here.
+- White background, black text, fully responsive, fits the full screen on mobile, tablet and desktop.
+
+5. PLACEHOLDER DATA (temporary, dev only)
+- The database has no categories or announcements yet (admin comes in Phase 9). So generate simple neutral placeholder images yourself (SVG or gradient images, no external hotlinks) and store them INSIDE the project at public/placeholders/ (one per category: Women's, Men's, Kid's, Bag's, Jewellery).
+- If the categories table returns zero rows, the slider falls back to these 5 local placeholder slides. If the announcements table is empty, the ticker falls back to a few sample messages.
+- Put all fallback data in ONE clearly marked file (e.g. src/lib/dev-fallbacks.ts) so it is easy to remove later when real images and data come from admin. Real DB data always takes priority over fallbacks.
+- Do NOT create or run any migration or seed SQL. Do not touch the database.
+
+6. QUALITY
+- Fully responsive on mobile, tablet, desktop. Touch targets at least 44px.
+- Use Framer Motion where it fits. Keep code clean and componentized (src/components/layout, src/components/home).
+- Run npm run build, lint, and type-check and fix all errors. You are CLI-only, so do not ask for screenshots. Do NOT push to GitHub or deploy.
+
+When finished, tell me: (a) what was built, (b) which file holds the fallback data and how to remove it later, (c) whether any migration is needed (there should be none), and (d) anything in the spec that was ambiguous and how you handled it.

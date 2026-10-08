@@ -1,0 +1,36 @@
+First read AGENTS.md fully (source of truth), then read supabase/migrations/001 to 006 and the existing admin foundation from Phase 9A (requireAdmin(), admin service-role helper, shell). Build PHASE 9B: Categories, Products, Inventory (admin side), plus the image upload mechanism. Build only this part.
+
+GENERAL (applies to every admin action here)
+- Every server action / admin data function calls requireAdmin() itself and uses the server-only service-role client. Validate all inputs on the server (types, required fields, lengths, numbers >= 0). Never trust the client.
+- After every create/edit/delete, revalidate the storefront pages that show that data (homepage, category pages, listing, product pages, hamburger menu data, search) so changes appear without a rebuild.
+- Admin UI stays simple and clean (tables/lists + one form per item, clear success/error messages, confirm dialog before delete). Fully responsive: on mobile tables become stacked cards or horizontally scrollable.
+
+1) IMAGE UPLOAD (shared component, reused everywhere)
+- Supabase Storage: one public-read bucket (e.g. "store-images") with folders per type. Create it via a new numbered migration (do NOT run SQL). Writes happen only through the server: the server (after requireAdmin) issues signed upload URLs or uploads itself; do not grant anon/authenticated any storage write access. Mind the Next.js server-action body size limit (prefer signed upload URLs so large images work).
+- Validate on the server: images only (jpeg, png, webp), max 5 MB each. Show preview, upload progress and clear errors. Support removing an image. When an item or image is deleted, remove the file from storage too.
+- One reusable ImageUpload component (single image) and a gallery variant (multiple images, can remove and reorder with simple left/right or up/down buttons, first image = main image).
+
+2) CATEGORIES (/admin/categories)
+- List top-level categories with add / edit / delete. Each top-level category has name and two upload fields labeled "Desktop Image" and "Mobile Image (optional)" (reuse ImageUpload for both).
+- Under Women's, Men's and Kid's (and any top-level category that is configured to have sub-categories as per the existing data model), full add / edit / delete of sub-categories, each with name and a single image. Bag's and Jewellery have no sub-categories.
+- Slugs are generated automatically from the name and kept unique.
+- Deleting a category/sub-category that still has sub-categories or products must NOT silently cascade: block it with a clear message listing what is attached, or ask for explicit confirmation if the schema allows safely. Follow what 001 defines.
+- Changes must reflect automatically in homepage slider + dots, hamburger menu, sub-category page.
+
+3) PRODUCTS (/admin/products)
+- List with search by name, add / edit / delete.
+- Product form fields exactly: name, description, category (and sub-category when the chosen category has them), price, optional discount price (must be lower than price), multiple image upload (gallery), custom free-text "Sizes" field (admin types whatever sizes are available, e.g. "S, M, L" or "Free Size"; exactly what is typed is what customers see), free-text "Colors" field (comma separated, typed manually, exactly what is typed is shown as color filter options), and "Low-stock threshold" (number). Use the existing columns from the migrations; if a needed column is missing, add it through a new migration.
+- Slug auto-generated and unique.
+- If deleting a product is blocked by existing orders (foreign keys), show a clear message instead of failing. Do not invent an archive feature.
+
+4) INVENTORY (/admin/inventory)
+- Table of all products with: image, name, stock quantity (editable inline), low-stock threshold (editable inline), and a clear "Low stock" flag when quantity <= threshold. Save per row with feedback. Simple search. If the stock quantity column does not exist yet, add it through a migration.
+- The low-stock rule here is the single source for the dashboard home's low-stock section (built in 9C); put it in one shared helper.
+
+Rules:
+- Do not run SQL. Create numbered migrations in supabase/migrations/ and show me each file name and FULL content in the final message for review before I run them manually.
+- Do not change storefront behavior except revalidation hooks. Do not invent extra features, pages or fields. No drag-and-drop reordering beyond what is described.
+- Do not push to GitHub, do not deploy.
+- Update AGENTS.md: mark Phase 9B done.
+- Run typecheck, lint and build, and fix anything you introduced.
+- Final summary: files created/changed, migrations (name + full content), and how to test (add category with 2 images, add sub-category, add product with gallery/sizes/colors/discount, edit inventory, delete rules).
