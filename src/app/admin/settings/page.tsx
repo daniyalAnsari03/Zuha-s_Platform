@@ -1,18 +1,26 @@
 import SettingsForm from "@/components/admin/SettingsForm";
+import StorePoliciesManager from "@/components/admin/StorePoliciesManager";
 import { requireAdmin } from "@/lib/admin/guard";
-import { getAdminStoreDetails } from "@/lib/admin/queries";
+import {
+  getAdminStoreDetails,
+  listAdminStorePolicies,
+} from "@/lib/admin/queries";
 
 /**
  * Settings: the public contact details and social links the footer and the
- * contact page render.
+ * contact page render, plus the four public policy pages.
  *
- * One row from `store_details` — never the `settings` table, which holds the
- * admin allowlist and is admin-only readable by design.
+ * The contact details come from the single `store_details` row — never the
+ * `settings` table, which holds the admin allowlist and is admin-only readable
+ * by design. The policies come from `store_policies` (migration 014).
  */
 export default async function AdminSettingsPage() {
   await requireAdmin();
 
-  const details = await getAdminStoreDetails();
+  const [details, policies] = await Promise.all([
+    getAdminStoreDetails(),
+    listAdminStorePolicies(),
+  ]);
 
   return (
     <section className="flex flex-col gap-6">
@@ -29,6 +37,8 @@ export default async function AdminSettingsPage() {
       </header>
 
       <SettingsForm initial={details} />
+
+      <StorePoliciesManager policies={policies} />
     </section>
   );
 }

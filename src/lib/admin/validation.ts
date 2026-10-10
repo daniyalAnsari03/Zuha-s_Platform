@@ -92,6 +92,9 @@ export const MAX_LINE_LENGTH = 200;
 export const MAX_TEAM_ROLE_LENGTH = 120;
 export const MAX_TEAM_BIO_LENGTH = 1000;
 
+/** One policy page's body, typed into the Settings textarea. */
+export const MAX_POLICY_LENGTH = 40000;
+
 /**
  * One trimmed line of text, at most `maxLength` characters.
  *
@@ -116,6 +119,26 @@ export function readLine(
   }
 
   return { ok: true, value: line };
+}
+
+/**
+ * Multi-line text, e.g. one policy page's body. Trimmed at the ends only —
+ * internal line breaks and blank lines are preserved exactly, because the
+ * storefront splits them into paragraphs. Empty is stored as an empty string
+ * (a policy may be cleared back to "not written yet").
+ */
+export function readLongText(
+  value: unknown,
+  label: string,
+  maxLength: number = MAX_POLICY_LENGTH,
+): { ok: true; value: string } | ActionError {
+  const text = typeof value === "string" ? value.trim() : "";
+
+  if (text.length > maxLength) {
+    return actionFail(`${label} must be ${maxLength} characters or fewer.`);
+  }
+
+  return { ok: true, value: text };
 }
 
 /**

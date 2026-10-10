@@ -20,6 +20,11 @@ import { getAdminDb } from "@/lib/admin/db";
 import { requireAdmin } from "@/lib/admin/guard";
 import { slugify } from "@/lib/admin/slug";
 import { ORDER_STATUSES, type OrderStatus } from "@/lib/order-types";
+import {
+  STORE_POLICY_SLUGS,
+  STORE_POLICY_TITLES,
+  type StorePolicySlug,
+} from "@/lib/policy-types";
 import { isLowStock } from "@/lib/products";
 
 export type AdminSubCategory = {
@@ -1213,6 +1218,47 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
     tiktok: data.tiktok_url,
     whatsapp: data.whatsapp_url,
   };
+}
+
+export type AdminStorePolicy = {
+  slug: StorePolicySlug;
+  title: string;
+  content: string;
+};
+
+/**
+ * The four policy pages (migration 014), always in the fixed route order, with
+ * each row's own title and body. A slug with no row falls back to the seeded
+ * title and an empty body, so the Settings screen still shows all four tabs.
+ */
+export async function listAdminStorePolicies(): Promise<AdminStorePolicy[]> {
+  await requireAdmin();
+  const db = getAdminDb();
+
+  const { data, error } = await db
+    .from("store_policies")
+    .select("slug, title, content");
+
+  if (error) {
+    console.error("[admin] could not read the store policies.", error.message);
+
+    // The most likely cause by far: migration 014 has not been run yet.
+    throw new Error(
+      `Could not load the store policies: ${error.message}. Run supabase/migrations/014_store_policies.sql in the Supabase SQL Editor first.`,
+    );
+  }
+
+  const bySlug = new Map((data ?? []).map((row) => [row.slug, row]));
+
+  return STORE_POLICY_SLUGS.map((slug) => {
+    const row = bySlug.get(slug);
+
+    return {
+      slug,
+      title: row?.title ?? STORE_POLICY_TITLES[slug],
+      content: row?.content ?? "",
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

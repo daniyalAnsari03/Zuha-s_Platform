@@ -106,6 +106,7 @@ Top to bottom:
 - Order summary: product image, name, price, quantity, total.
 - After placing an order: confirmation page with an order number and a thank-you message.
 - Login/signup is **optional**. The entire checkout/order flow works without logging in.
+- Near the Place Order button, a small line reads "By placing your order you agree to our Terms of Service, Refund Policy, Shipping Policy and Privacy Policy." with each name linking to its policy page in a new tab (`target="_blank"`, `rel="noopener noreferrer"`) so the shopper never loses checkout data. No checkbox, no blocking logic.
 - **Auth:** clicking Login offers **"Continue with Google"** (direct login) and **email/password signup/login**. Built on Supabase Auth.
 - The account/login link lives in the hamburger menu. Logged-in users get an Account area with "My Orders" tracking, and each user sees only their own orders.
 
@@ -120,7 +121,9 @@ Top to bottom:
 - **Mobile:** the login icon is hidden below `md` (`display: none`, not focusable), so Account is reached through the hamburger menu on phones — the menu's Account link points at `/login` when signed out and `/account` when signed in.
 
 ### 4.7 Footer & Team Page
-- Footer: standard content first — the Shop / Contact / Follow / newsletter columns, with the "Contact Us" and "Team" buttons side by side directly under the email signup box in the right-hand column — then the "Z U H A ' S" wordmark (**black**, styled like the navbar logo) centred at the very bottom, directly above the copyright line. The Contact link appears only in the footer (not in the hamburger menu).
+- Footer: standard content first — the Shop / Contact / Follow / Policies / newsletter columns, with the "Contact Us" and "Team" buttons side by side directly under the email signup box in the right-hand column — then the "Z U H A ' S" wordmark (**black**, styled like the navbar logo) centred at the very bottom, directly above the copyright line. The Contact link appears only in the footer (not in the hamburger menu).
+- The POLICIES column sits beside ShOP / CONTACT / FOLLOW in the same style: a vertical list linking to `/policies/privacy-policy`, `/policies/refund-policy`, `/policies/terms-of-service` and `/policies/shipping-policy` (Privacy Policy, Refund Policy, Terms of Service, Shipping Policy). It appears in both the normal footer and the full-screen homepage footer slide, and the five columns keep enough gutter and `minmax(0, …)` tracks that nothing overlaps; below `lg` they wrap to two columns (`sm`) and then one.
+- `/policies/[slug]` renders those four pages: a breadcrumb (HOME > PRIVACY POLICY etc.), the page title, then the body as **plain text** (never `dangerouslySetInnerHTML`) — split on blank lines into paragraphs with single line breaks preserved — in the shared content container with a normal (non-full-screen) footer. Any other slug is a `notFound()`; a page with no body shows "This page has not been updated yet." The routes are static/ISR with `generateStaticParams` for the four slugs, and the body is read through `getStorePolicy` (`src/lib/policy-data.ts`, `unstable_cache` + the `store-policies` tag).
 - The FOLLOW column is a **vertical list of icon + platform name rows** (not a horizontal icon row): each row is one link — the round icon (~36px, same thin border and hover as before) followed by INSTAGRAM / FACEBOOK / TIKTOK / WHATSAPP in the same uppercase font, size, tracking and colour as the SHOP and CONTACT links, with the same `space-y-3` row rhythm. Only platforms with a link set appear; a platform with no link is not rendered. The `/contact` page's Social row stays the horizontal icon-only row.
 - All non-homepage pages use a normal (not full-screen) footer with the same content as the homepage footer. On the homepage the footer stays the final full-screen slide.
 - "Team" opens a new page showing team members as circular images + name underneath in a left-right carousel with navigation arrows (same circular style as sub-category cards). It must not dump all details at once.
@@ -192,16 +195,19 @@ Full add/edit/delete for top-level categories (Women's, Men's, Kid's, Bag's, Jew
 ### Settings
 - General store settings: store name, contact email, phone, address, and the social links (Instagram, Facebook, TikTok, WhatsApp — each optional).
 - These are public values, so they live in the single-row `store_details` table (migration 010), not in `settings`. The footer and `/contact` read them through `getStoreDetails()` in `src/lib/store-details.ts` and fall back to `src/lib/site-config.ts` whenever a field is blank. `settings.admin_emails` never leaves `settings`.
+- **Store Policies** section: four tabs (Privacy Policy, Refund Policy, Terms of Service, Shipping Policy), each a large plain textarea with a Save button — no rich editor. Saving writes that row in `store_policies` (migration 014) by slug through the service role in the `saveStorePolicy` action (`src/lib/admin/policies.ts`), then expires the `store-policies` cache tag and revalidates `/policies/[slug]`. The page reads all four through `listAdminStorePolicies` in `src/lib/admin/queries.ts`; the manager is `src/components/admin/StorePoliciesManager.tsx`. No new sidebar item.
 
 ---
 
 ## 6. Database (Supabase)
 
-Tables: categories, sub_categories, products, orders (and order items), customers, announcements, team_members, settings, store_details, contact_messages. Include the fields needed for inventory (stock quantity, low-stock threshold), discounts (discount price), analytics (order totals/dates/status), and Google + email/password auth. Use Supabase Storage for product images and team member images. Apply sensible Row Level Security (users see only their own orders; admin-only writes for management tables).
+Tables: categories, sub_categories, products, orders (and order items), customers, announcements, team_members, settings, store_details, contact_messages, store_policies. Include the fields needed for inventory (stock quantity, low-stock threshold), discounts (discount price), analytics (order totals/dates/status), and Google + email/password auth. Use Supabase Storage for product images and team member images. Apply sensible Row Level Security (users see only their own orders; admin-only writes for management tables).
 
 The categories table has desktop and mobile image fields.
 
 `store_details` is the exception: one row (id 1), public read for `anon` / `authenticated`, writes only through the service role, because the footer and `/contact` have to render those values for an anonymous visitor. Every other settings row stays in `settings`, which is admin-only readable.
+
+`store_policies` (migration 014) is also public-read: `slug` is the primary key and the four rows are seeded (Privacy Policy, Refund Policy, Terms of Service, Shipping Policy), `anon` / `authenticated` may SELECT only, and writes go exclusively through the service role behind `requireAdmin()` in `saveStorePolicy`.
 
 `contact_messages` is private in the other direction: RLS enabled with **no policy at all**, so `anon` / `authenticated` can neither select nor insert a row (plus an explicit REVOKE). The contact form writes only through the service-role key in the `sendContactMessage` server action, and only the dashboard's Messages section reads it.
 

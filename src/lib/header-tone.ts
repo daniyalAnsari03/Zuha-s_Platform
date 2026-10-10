@@ -40,6 +40,18 @@ export const HEADER_STRIP_HEIGHT_PX = 160;
 /** Rendered on first paint, and whenever a measurement fails. */
 export const HEADER_TONE_FALLBACK = HEADER_TONE_ON_LIGHT_IMAGE;
 
+/**
+ * The fixed-height chrome the `(site)` layout stacks above a page's content:
+ * the announcement bar (`h-10`) and the solid navbar row (see `NAV_HEIGHT` in
+ * the Navbar component: `h-12`, `md:h-[59px]`). The page shell subtracts this
+ * from a full viewport to size its content, so header + content always fill the
+ * first screen and the normal footer starts below it. These are the only source
+ * of those numbers - keep them in step with the two components.
+ */
+export const ANNOUNCEMENT_BAR_HEIGHT_PX = 40;
+export const NAVBAR_HEIGHT_PX = 48;
+export const NAVBAR_HEIGHT_MD_PX = 59;
+
 /** Canvas width for the sample; the height follows the viewport aspect ratio. */
 const SAMPLE_WIDTH = 320;
 

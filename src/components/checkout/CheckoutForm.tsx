@@ -20,6 +20,7 @@ import {
   type PlaceOrderPayload,
 } from "@/lib/order-types";
 import { placeOrder } from "@/lib/orders";
+import type { StorePolicySlug } from "@/lib/policy-types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -309,6 +310,18 @@ export default function CheckoutForm({
         >
           {pending ? "Placing order..." : "Place Order"}
         </button>
+
+        {/*
+          Plain acknowledgment, not a checkbox and not a gate: the links open in
+          a new tab so an unfinished checkout is never lost.
+        */}
+        <p className="text-xs leading-relaxed text-black/50">
+          By placing your order you agree to our{" "}
+          <PolicyLink slug="terms-of-service" label="Terms of Service" />,{" "}
+          <PolicyLink slug="refund-policy" label="Refund Policy" />,{" "}
+          <PolicyLink slug="shipping-policy" label="Shipping Policy" /> and{" "}
+          <PolicyLink slug="privacy-policy" label="Privacy Policy" />.
+        </p>
       </form>
 
       <aside className="lg:order-1">
@@ -319,6 +332,23 @@ export default function CheckoutForm({
         <OrderSummaryCard lines={lines} subtotal={subtotal} total={subtotal} />
       </aside>
     </div>
+  );
+}
+
+/**
+ * One policy name in the checkout acknowledgment line, opened in a new tab so
+ * the shopper keeps their checkout data.
+ */
+function PolicyLink({ slug, label }: { slug: StorePolicySlug; label: string }) {
+  return (
+    <Link
+      href={`/policies/${slug}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="underline underline-offset-2 transition-colors hover:text-plum"
+    >
+      {label}
+    </Link>
   );
 }
 

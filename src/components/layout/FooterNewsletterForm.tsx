@@ -9,8 +9,18 @@ import { ChevronRightIcon } from "@/components/icons";
  * Deliberately UI only — there is no endpoint, no Supabase table, no API call
  * and no validation logic anywhere in this component. Submitting only stops
  * the browser from navigating, so nothing happens.
+ *
+ * `idSuffix` makes the input/label id unique: the footer renders this both in
+ * its desktop columns and in its mobile stack (one hidden by CSS), so without
+ * it the two copies would share one id.
  */
-export default function FooterNewsletterForm() {
+export default function FooterNewsletterForm({
+  idSuffix = "default",
+}: {
+  idSuffix?: string;
+}) {
+  const inputId = `footer-newsletter-email-${idSuffix}`;
+
   return (
     <form
       aria-label="Newsletter sign-up"
@@ -18,13 +28,13 @@ export default function FooterNewsletterForm() {
       onSubmit={(event) => event.preventDefault()}
       className="w-full"
     >
-      <label htmlFor="footer-newsletter-email" className="sr-only">
+      <label htmlFor={inputId} className="sr-only">
         Email address
       </label>
 
       <div className="flex items-stretch border border-black/25 bg-white transition-colors focus-within:border-plum">
         <input
-          id="footer-newsletter-email"
+          id={inputId}
           name="email"
           type="email"
           autoComplete="email"

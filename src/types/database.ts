@@ -192,6 +192,18 @@ export type StoreDetails = {
   updated_at: string;
 };
 
+/**
+ * A public store policy page (migration 014): Privacy Policy, Refund Policy,
+ * Terms of Service and Shipping Policy. Keyed by slug, publicly readable, and
+ * written only by the dashboard's Settings screen through the service role.
+ */
+export type StorePolicy = {
+  slug: string;
+  title: string;
+  content: string;
+  updated_at: string;
+};
+
 type Tables = {
   /**
    * Every table entry needs a `Relationships` array, otherwise the whole schema
@@ -276,6 +288,13 @@ type Tables = {
     Insert: Omit<ContactMessage, "id" | "created_at" | "is_read"> &
       Partial<Pick<ContactMessage, "id" | "created_at" | "is_read">>;
     Update: Partial<Omit<ContactMessage, "id" | "created_at">>;
+    Relationships: [];
+  };
+  store_policies: {
+    Row: StorePolicy;
+    Insert: Omit<StorePolicy, "updated_at"> &
+      Partial<Pick<StorePolicy, "updated_at">>;
+    Update: Partial<Omit<StorePolicy, "slug">>;
     Relationships: [];
   };
 };
