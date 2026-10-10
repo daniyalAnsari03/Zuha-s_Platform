@@ -20,6 +20,7 @@ export default function SiteFooter({ categories, details }: SiteFooterProps) {
       className="absolute inset-0 overflow-y-auto overscroll-contain bg-white"
       data-scrollable
       id="site-footer"
+      style={{ contentVisibility: "auto", containIntrinsicSize: "100svh" }}
     >
       {/*
         Full-screen slide: the shared content keeps its markup and only swaps

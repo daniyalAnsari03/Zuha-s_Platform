@@ -42,7 +42,7 @@ export default function FooterNewsletterForm({
           autoCorrect="off"
           spellCheck={false}
           placeholder="EMAIL ADDRESS"
-          className="min-w-0 flex-1 bg-transparent px-4 py-3 text-sm tracking-[0.08em] text-black placeholder:lowercase placeholder:text-black/40 focus:outline-none lg:text-[15px]"
+          className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm tracking-[0.08em] text-black placeholder:lowercase placeholder:text-black/40 focus:outline-none lg:text-[15px]"
         />
 
         <button

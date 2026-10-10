@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 
 import CategorySlider from "@/components/home/CategorySlider";
+import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import type { HomeAnnouncement, HomeCategorySlide } from "@/lib/home-data";
 import {
   HEADER_TONE_FALLBACK,
   measureHeaderTone,
+  prefetchHeaderTones,
   type HeaderTone,
 } from "@/lib/header-tone";
 import type { MenuCategory } from "@/lib/menu-data";
@@ -53,6 +55,21 @@ export default function HomeExperience({
     setActiveImageUrl(imageUrl);
   }, []);
 
+  /*
+   * Measure every slide's tone once, in the background, right after the first
+   * paint. Without this the first visit to a slide measures its image on the
+   * main thread while the cover animation is running — the biggest cause of a
+   * dropped frame on mobile. With it, `activeImageUrl` below only ever reads a
+   * cached value.
+   */
+  useEffect(() => {
+    const urls: (string | null)[] = [];
+    for (const category of categories) {
+      urls.push(category.imageUrl, category.mobileImageUrl);
+    }
+    return prefetchHeaderTones(urls);
+  }, [categories]);
+
   useEffect(() => {
     if (!activeImageUrl) return;
 
@@ -85,6 +102,9 @@ export default function HomeExperience({
         onFooterActiveChange={handleFooterActiveChange}
         onActiveImageUrlChange={handleActiveImageUrlChange}
       />
+
+      {/* Stays put over every slide, including the full-screen footer slide. */}
+      <CurrencySwitcher />
     </div>
   );
 }

@@ -1167,6 +1167,8 @@ export type AdminStoreDetails = {
   facebook: string;
   tiktok: string;
   whatsapp: string;
+  /** "1 USD = X PKR" as a string; empty means no rate. */
+  usdRate: string;
 };
 
 export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
@@ -1178,6 +1180,7 @@ export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
   facebook: "",
   tiktok: "",
   whatsapp: "",
+  usdRate: "",
 };
 
 /**
@@ -1192,7 +1195,7 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
   const { data, error } = await db
     .from("store_details")
     .select(
-      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url",
+      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url, usd_rate",
     )
     .eq("id", 1)
     .maybeSingle();
@@ -1217,6 +1220,7 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
     facebook: data.facebook_url,
     tiktok: data.tiktok_url,
     whatsapp: data.whatsapp_url,
+    usdRate: data.usd_rate === null ? "" : String(data.usd_rate),
   };
 }
 

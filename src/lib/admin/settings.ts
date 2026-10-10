@@ -24,6 +24,7 @@ import {
   readLine,
   readOptionalEmail,
   readOptionalLink,
+  readOptionalUsdRate,
   type ActionResult,
 } from "@/lib/admin/validation";
 
@@ -37,6 +38,11 @@ export type StoreDetailsInput = {
   facebook: string;
   tiktok: string;
   whatsapp: string;
+  /**
+   * "1 USD = X PKR" as typed. Empty means no rate, which hides the storefront's
+   * USD option. Kept as a string because the form field is text.
+   */
+  usdRate: string;
 };
 
 /** The single row's id. Seeded by migration 010. */
@@ -71,6 +77,9 @@ export async function saveStoreDetails(
   const whatsapp = readOptionalLink(input?.whatsapp, "WhatsApp link");
   if (!whatsapp.ok) return whatsapp;
 
+  const usdRate = readOptionalUsdRate(input?.usdRate);
+  if (!usdRate.ok) return usdRate;
+
   const db = getAdminDb();
 
   const values = {
@@ -82,6 +91,7 @@ export async function saveStoreDetails(
     facebook_url: facebook.value,
     tiktok_url: tiktok.value,
     whatsapp_url: whatsapp.value,
+    usd_rate: usdRate.value,
   };
 
   const { error } = await db

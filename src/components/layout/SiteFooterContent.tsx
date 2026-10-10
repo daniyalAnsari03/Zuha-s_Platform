@@ -58,23 +58,24 @@ const COLUMNS_CLASS =
   "hidden w-full gap-6 text-left md:grid md:grid-cols-2 md:gap-x-8 md:gap-y-10 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.95fr)_minmax(0,1.15fr)_minmax(0,1.3fr)_minmax(0,1.45fr)] lg:gap-x-8 lg:gap-y-10";
 
 /**
- * SHOP / CONTACT / FOLLOW / POLICIES: the plain sans the links use (the global
- * `h1-h6` rule is serif, so `font-sans` is what takes the serif back off),
- * medium weight, 15px mobile / 19px desktop — still clearly bigger than the
- * links. The column headings still render serif: the unlayered heading rule in
- * `globals.css` outranks the utility, and that is the intended look for them.
+ * SHOP / CONTACT / FOLLOW / POLICIES: the plain sans the links use — the global
+ * `h1-h6` rule is serif, so the headings below carry an inline
+ * `fontFamily: var(--font-sans)` to take the serif back off. The links stay one
+ * step smaller than before (13px), still clearly smaller than the headings,
+ * medium weight on the headings.
  */
 const COLUMN_HEADING_CLASS =
   "mb-5 font-sans text-[15px] font-medium uppercase tracking-[0.14em] lg:text-[19px]";
 
 /**
- * Links and contact text: 14px on mobile, 15px from `lg` up, uppercase.
- * `overflow-wrap: anywhere` is the safety net for long values (a long email
- * address above all): at a tight width the value breaks inside its own column
- * instead of pushing into — or over — the next one.
+ * Links and contact text: 13px on both mobile and desktop (one step down from
+ * the old 14/15px), uppercase. `overflow-wrap: anywhere` is the safety net for
+ * long values (a long email address above all): at a tight width the value
+ * breaks inside its own column instead of pushing into — or over — the next one.
+ * The mobile accordion rows keep their own 44px tap targets.
  */
 const COLUMN_BODY_CLASS =
-  "space-y-3 text-sm uppercase tracking-[0.08em] text-black/70 [overflow-wrap:anywhere] lg:text-[15px]";
+  "space-y-3 text-[13px] uppercase tracking-[0.08em] text-black/70 [overflow-wrap:anywhere]";
 
 /**
  * The newsletter line is deliberately not styled like the headings: it reuses
@@ -85,7 +86,7 @@ const COLUMN_BODY_CLASS =
  */
 const NEWSLETTER_HEADING_CLASS = cn(
   COLUMN_BODY_CLASS,
-  "mb-5 font-sans leading-relaxed",
+  "mb-4 font-sans text-[13px] leading-relaxed",
 );
 
 const COLUMN_LINK_CLASS =
@@ -93,13 +94,14 @@ const COLUMN_LINK_CLASS =
 
 /**
  * The Contact Us and Team buttons under the newsletter box: the same plum
- * border, plum text, pill shape and hover fill as before. `flex-1` makes the
- * two equal and exactly as wide together as the signup box, `whitespace-nowrap`
- * keeps each label on one line, and `flex-wrap` on their row lets them wrap as
- * whole buttons when the column gets narrow.
+ * border, plum text and hover fill as before, now square-cornered and a touch
+ * shorter. `flex-1` makes the two equal and exactly as wide together as the
+ * signup box, `whitespace-nowrap` keeps each label on one line, and
+ * `flex-wrap` on their row lets them wrap as whole buttons when the column
+ * gets narrow.
  */
 const FOOTER_LINK_CLASS =
-  "inline-flex h-11 min-w-[6.5rem] flex-1 items-center justify-center whitespace-nowrap rounded-full border border-plum px-4 text-sm font-medium text-plum transition-colors hover:bg-plum hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum";
+  "inline-flex h-10 min-w-[6.5rem] flex-1 items-center justify-center whitespace-nowrap border border-plum px-4 text-sm font-medium text-plum transition-colors hover:bg-plum hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum";
 
 type SiteFooterContentProps = {
   categories: { name: string; slug: string }[];
@@ -131,11 +133,9 @@ function FooterNewsletter({ idSuffix }: { idSuffix: string }) {
   return (
     <section aria-labelledby={headingId} className="w-full min-w-0">
       {/*
-        The only sans heading in the footer: it has to match the links below it,
-        and `font-sans` on its own cannot win — the unlayered `h1-h6` rule in
-        globals.css outranks every Tailwind utility, which is exactly why SHOP /
-        CONTACT / FOLLOW / POLICIES still render serif. An inline family is the
-        one thing that beats it.
+        Like the column headings above, this has to beat the unlayered `h1-h6`
+        serif rule in globals.css — `font-sans` on its own cannot win — so an
+        inline family does it, exactly as SHOP / CONTACT / FOLLOW / POLICIES do.
       */}
       <h2
         id={headingId}
@@ -159,7 +159,7 @@ function FooterNewsletter({ idSuffix }: { idSuffix: string }) {
         </Link>
 
         <Link href="/team" className={FOOTER_LINK_CLASS}>
-          Team
+          Team Members
         </Link>
       </div>
     </section>
@@ -193,7 +193,11 @@ export default function SiteFooterContent({
       <div className={MAIN_BLOCK_CLASS}>
         <div className={COLUMNS_CLASS}>
           <section aria-labelledby="footer-shop" className="min-w-0">
-            <h2 id="footer-shop" className={COLUMN_HEADING_CLASS}>
+            <h2
+              id="footer-shop"
+              className={COLUMN_HEADING_CLASS}
+              style={{ fontFamily: "var(--font-sans)" }}
+            >
               Shop
             </h2>
             <ul className={COLUMN_BODY_CLASS}>
@@ -211,7 +215,11 @@ export default function SiteFooterContent({
           </section>
 
           <section aria-labelledby="footer-contact" className="min-w-0">
-            <h2 id="footer-contact" className={COLUMN_HEADING_CLASS}>
+            <h2
+              id="footer-contact"
+              className={COLUMN_HEADING_CLASS}
+              style={{ fontFamily: "var(--font-sans)" }}
+            >
               Contact
             </h2>
             <ul className={COLUMN_BODY_CLASS}>
@@ -238,7 +246,11 @@ export default function SiteFooterContent({
           </section>
 
           <section aria-labelledby="footer-social" className="min-w-0">
-            <h2 id="footer-social" className={COLUMN_HEADING_CLASS}>
+            <h2
+              id="footer-social"
+              className={COLUMN_HEADING_CLASS}
+              style={{ fontFamily: "var(--font-sans)" }}
+            >
               Follow
             </h2>
             {/*
@@ -257,7 +269,11 @@ export default function SiteFooterContent({
           </section>
 
           <section aria-labelledby="footer-policies" className="min-w-0">
-            <h2 id="footer-policies" className={COLUMN_HEADING_CLASS}>
+            <h2
+              id="footer-policies"
+              className={COLUMN_HEADING_CLASS}
+              style={{ fontFamily: "var(--font-sans)" }}
+            >
               Policies
             </h2>
             <ul className={COLUMN_BODY_CLASS}>
@@ -290,12 +306,19 @@ export default function SiteFooterContent({
         </div>
       </div>
 
+      {/*
+        Below `md` the wordmark leads the footer: it is flex-ordered to the top
+        of the stack (the accordion, newsletter and buttons follow it), with a
+        comfortable ~32px gap into the first section. From `md` up it drops back
+        to its normal spot, bottom-centre directly above the copyright line.
+      */}
       <Link
         href="/"
         aria-label="ZUHA'S home"
         className={cn(
           FOOTER_LOGO_CLASS,
           "text-black transition-opacity hover:opacity-70",
+          "order-first mb-2 md:order-none md:mb-0",
         )}
       >
         {details.name}

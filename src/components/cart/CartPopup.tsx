@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { RefObject } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import Price from "@/components/currency/Price";
 import { CloseIcon } from "@/components/icons";
 import FadeInImage from "@/components/ui/FadeInImage";
 import NavbarPopover from "@/components/layout/NavbarPopover";
@@ -15,7 +16,6 @@ import {
   staggerContainer,
 } from "@/lib/motion";
 import { cartItemKey } from "@/lib/cart";
-import { formatAmount } from "@/lib/order-types";
 
 type CartPopupProps = {
   open: boolean;
@@ -156,9 +156,10 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
                         </button>
                       </div>
 
-                      <p className="text-sm font-medium">
-                        {formatAmount(item.price * item.quantity)}
-                      </p>
+                      <Price
+                        amount={item.price * item.quantity}
+                        className="text-sm font-medium"
+                      />
                     </div>
                   </div>
                 </motion.li>
@@ -169,9 +170,7 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
           <footer className="flex flex-col gap-3 border-t border-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-sm">
               <span className="text-black/50">Total</span>{" "}
-              <span className="ml-2 font-medium">
-                {formatAmount(subtotal)}
-              </span>
+              <Price amount={subtotal} className="ml-2 font-medium" />
             </p>
 
             <Link

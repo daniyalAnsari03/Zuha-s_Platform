@@ -1,3 +1,4 @@
+import Price from "@/components/currency/Price";
 import FadeInImage from "@/components/ui/FadeInImage";
 import { formatAmount } from "@/lib/order-types";
 import { IMAGE_QUALITY } from "@/lib/images";
@@ -24,6 +25,12 @@ type OrderSummaryCardProps = {
   total: number;
   /** Hidden where the totals are already shown next to the card. */
   showTotals?: boolean;
+  /**
+   * Checkout only: render the amounts in the shopper's selected currency. The
+   * confirmation page and "My Orders" leave this false, so they stay PKR (the
+   * amount an order is actually placed in).
+   */
+  displayCurrency?: boolean;
   className?: string;
 };
 
@@ -43,8 +50,21 @@ export default function OrderSummaryCard({
   subtotal,
   total,
   showTotals = true,
+  displayCurrency = false,
   className,
 }: OrderSummaryCardProps) {
+  /*
+   * A plain helper, not a nested component: returning `<Price>` from here keeps
+   * `Price`'s identity stable across renders, so its currency-change fade never
+   * re-runs just because the summary re-rendered.
+   */
+  const amountNode = (amount: number, amountClassName?: string) =>
+    displayCurrency ? (
+      <Price amount={amount} className={amountClassName} />
+    ) : (
+      <span className={amountClassName}>{formatAmount(amount)}</span>
+    );
+
   return (
     <div className={cn("w-full", className)}>
       <ul className="divide-y divide-black/10">
@@ -76,12 +96,12 @@ export default function OrderSummaryCard({
                 </div>
 
                 <p className="shrink-0 text-sm font-medium">
-                  {formatAmount(line.lineTotal)}
+                  {amountNode(line.lineTotal)}
                 </p>
               </div>
 
               <p className="text-xs text-black/50">
-                {formatAmount(line.unitPrice)} each &times; {line.quantity}
+                {amountNode(line.unitPrice)} each &times; {line.quantity}
               </p>
             </div>
           </li>
@@ -92,11 +112,11 @@ export default function OrderSummaryCard({
         <dl className="mt-2 space-y-2 border-t border-black/10 pt-4 text-sm">
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-black/60">Subtotal</dt>
-            <dd>{formatAmount(subtotal)}</dd>
+            <dd>{amountNode(subtotal)}</dd>
           </div>
           <div className="flex items-baseline justify-between gap-4 text-base">
             <dt className="font-medium">Total</dt>
-            <dd className="font-medium text-plum">{formatAmount(total)}</dd>
+            <dd className="font-medium text-plum">{amountNode(total)}</dd>
           </div>
         </dl>
       ) : null}

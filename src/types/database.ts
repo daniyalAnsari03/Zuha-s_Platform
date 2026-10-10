@@ -189,6 +189,8 @@ export type StoreDetails = {
   facebook_url: string;
   tiktok_url: string;
   whatsapp_url: string;
+  /** `1 USD = X PKR` (migration 015). NULL hides the USD option. */
+  usd_rate: number | null;
   updated_at: string;
 };
 

@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import { useCurrency } from "@/components/currency/CurrencyProvider";
 import OrderSummaryCard, {
   type OrderLineView,
 } from "@/components/orders/OrderSummaryCard";
 import { cartItemKey } from "@/lib/cart";
+import { formatPkr } from "@/lib/currency";
 import {
   CHECKOUT_FIELDS,
   CHECKOUT_FIELD_LABELS,
@@ -76,6 +78,7 @@ export default function CheckoutForm({
 }: CheckoutFormProps) {
   const router = useRouter();
   const { items, hydrated, clearCart } = useCart();
+  const { currency } = useCurrency();
   const formRef = useRef<HTMLFormElement>(null);
 
   const [values, setValues] = useState<CheckoutValues>({
@@ -329,7 +332,23 @@ export default function CheckoutForm({
           Order summary
         </h2>
 
-        <OrderSummaryCard lines={lines} subtotal={subtotal} total={subtotal} />
+        <OrderSummaryCard
+          lines={lines}
+          subtotal={subtotal}
+          total={subtotal}
+          displayCurrency
+        />
+
+        {/*
+          The order is always placed and saved in PKR; only the display changes.
+          The real PKR total is repeated here so a USD shopper is never confused
+          about what the courier will collect.
+        */}
+        {currency === "USD" ? (
+          <p className="mt-3 text-xs leading-relaxed text-black/50">
+            Order will be placed and charged in PKR (Rs {formatPkr(subtotal)})
+          </p>
+        ) : null}
       </aside>
     </div>
   );

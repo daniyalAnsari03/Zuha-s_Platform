@@ -15,18 +15,20 @@ import { mailtoHref, telHref, type StoreDetails } from "@/lib/site-config";
  * hamburger's sub-category accordion.
  *
  * The open/close is the CSS `grid-template-rows: 0fr -> 1fr` technique (never
- * `height: auto`), with the panel opacity, and the shared `--motion-*` tokens.
- * Everything is centred and every link is a 44px tap target. The desktop/tablet
- * columns live in `SiteFooterContent`; this component is rendered `md:hidden`.
+ * `height: auto`), with the panel opacity, and a slow, soft ease-out so the
+ * section glides open in slow motion — this is the mobile footer only. The
+ * desktop/tablet columns live in `SiteFooterContent`; this component is
+ * rendered `md:hidden`.
  */
+const ACCORDION_DURATION = "0.65s";
+
 const BODY_CLASS =
-  "flex w-full flex-col items-center text-center text-sm tracking-[0.08em] text-black/70 uppercase [overflow-wrap:anywhere]";
+  "flex w-full flex-col items-center text-center text-[13px] tracking-[0.08em] text-black/70 uppercase [overflow-wrap:anywhere]";
 
 const LINK_CLASS =
   "flex min-h-11 w-full items-center justify-center px-2 text-center underline-offset-4 transition-colors hover:text-plum hover:underline";
 
-const PANEL_TRANSITION =
-  "grid-template-rows var(--motion-duration-accordion) var(--motion-ease), opacity var(--motion-duration-accordion) var(--motion-ease)";
+const PANEL_TRANSITION = `grid-template-rows ${ACCORDION_DURATION} var(--motion-ease), opacity ${ACCORDION_DURATION} var(--motion-ease)`;
 
 type MobileFooterAccordionProps = {
   categories: { name: string; slug: string }[];
@@ -133,26 +135,26 @@ export default function MobileFooterAccordion({
                 onClick={() => toggle(section.id)}
                 aria-expanded={expanded}
                 aria-controls={panelId}
-                className="flex min-h-12 w-full items-center justify-center gap-3 py-3 text-center font-serif text-base tracking-[0.14em] uppercase transition-colors hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                className="flex min-h-11 w-full items-center justify-center gap-3 py-2 text-center font-sans text-sm tracking-[0.14em] uppercase transition-colors hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
               >
                 <span>{section.label}</span>
 
                 {/*
                   "+" that becomes "−" when open: the vertical bar of the plus
-                  scales away on the shared accordion timing. Transform only.
+                  scales away on the same slow accordion timing. Transform only.
                 */}
                 <span
                   aria-hidden="true"
-                  className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center"
+                  className="relative inline-flex h-3 w-3 shrink-0 items-center justify-center"
                 >
-                  <span className="absolute h-[1.5px] w-4 bg-current" />
+                  <span className="absolute h-[1.5px] w-3 bg-current" />
                   <span
-                    className="absolute h-4 w-[1.5px] bg-current"
+                    className="absolute h-3 w-[1.5px] bg-current"
                     style={{
                       transform: expanded ? "scaleY(0)" : "scaleY(1)",
                       transition: reduceMotion
                         ? "none"
-                        : "transform var(--motion-duration-accordion) var(--motion-ease)",
+                        : `transform ${ACCORDION_DURATION} var(--motion-ease)`,
                     }}
                   />
                 </span>

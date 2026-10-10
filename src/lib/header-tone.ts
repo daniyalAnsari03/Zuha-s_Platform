@@ -19,6 +19,8 @@
  * {@link HEADER_TONE_FALLBACK} instead of throwing.
  */
 
+import { scheduleIdle } from "@/lib/idle";
+
 export const HEADER_TONE_ON_LIGHT_IMAGE = "white";
 export const HEADER_TONE_ON_DARK_IMAGE = "black";
 
@@ -52,8 +54,16 @@ export const ANNOUNCEMENT_BAR_HEIGHT_PX = 40;
 export const NAVBAR_HEIGHT_PX = 48;
 export const NAVBAR_HEIGHT_MD_PX = 59;
 
-/** Canvas width for the sample; the height follows the viewport aspect ratio. */
-const SAMPLE_WIDTH = 320;
+/**
+ * Canvas width for the sample; the height follows the viewport aspect ratio.
+ *
+ * Kept deliberately tiny: the answer is an average luminance, so a 32px-wide
+ * downscale samples the strip just as faithfully as a full-width one while
+ * making the offscreen `drawImage` + `getImageData` a few hundred pixels
+ * instead of hundreds of thousands. That is what keeps the measurement off the
+ * critical path when it happens to run during a slide transition.
+ */
+const SAMPLE_WIDTH = 32;
 
 /** One measurement per image URL, shared by every caller. */
 const toneByImageUrl = new Map<string, Promise<HeaderTone>>();
@@ -67,6 +77,42 @@ export function measureHeaderTone(imageUrl: string): Promise<HeaderTone> {
   );
   toneByImageUrl.set(imageUrl, pending);
   return pending;
+}
+
+/**
+ * Warms the tone cache for every slide image, one at a time, while the browser
+ * is idle. By the time the shopper reaches a slide its tone is already cached,
+ * so changing slides only reads a resolved value instead of decoding an image
+ * and reading canvas pixels on the main thread mid-transition.
+ *
+ * The returned function cancels any remaining work (call it on unmount).
+ */
+export function prefetchHeaderTones(
+  imageUrls: readonly (string | null | undefined)[],
+): () => void {
+  const queue = Array.from(
+    new Set(
+      imageUrls.filter(
+        (url): url is string => typeof url === "string" && url.length > 0,
+      ),
+    ),
+  );
+
+  let cancelled = false;
+  let next = 0;
+
+  const runNext = () => {
+    if (cancelled || next >= queue.length) return;
+
+    void measureHeaderTone(queue[next++]).finally(() => {
+      if (!cancelled) scheduleIdle(runNext);
+    });
+  };
+
+  scheduleIdle(runNext);
+  return () => {
+    cancelled = true;
+  };
 }
 
 async function computeHeaderTone(imageUrl: string): Promise<HeaderTone> {

@@ -11,7 +11,7 @@ import {
 } from "@/components/admin/admin-fields";
 import { saveStoreDetails, type StoreDetailsInput } from "@/lib/admin/settings";
 import type { AdminStoreDetails } from "@/lib/admin/queries";
-import { MAX_LINE_LENGTH } from "@/lib/admin/validation";
+import { MAX_LINE_LENGTH, MAX_USD_RATE } from "@/lib/admin/validation";
 
 /**
  * Settings: the store's public contact details and social links.
@@ -73,6 +73,29 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
             maxLength={MAX_LINE_LENGTH}
             className={ADMIN_INPUT_CLASS}
             placeholder="ZUHA'S"
+          />
+        </AdminField>
+      </section>
+
+      <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">
+        <AdminSectionTitle>Currency</AdminSectionTitle>
+
+        <AdminField
+          label="USD rate (1 USD = ___ PKR)"
+          htmlFor="store-usd-rate"
+          hint="Used for the USD option on the storefront. Leave empty to hide USD."
+        >
+          <input
+            id="store-usd-rate"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={MAX_USD_RATE}
+            step="0.01"
+            value={values.usdRate}
+            onChange={set("usdRate")}
+            className={ADMIN_INPUT_CLASS}
+            placeholder="e.g. 280"
           />
         </AdminField>
       </section>

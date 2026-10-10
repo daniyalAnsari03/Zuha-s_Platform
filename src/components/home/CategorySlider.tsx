@@ -3,10 +3,18 @@
 import { motion, useReducedMotion } from "framer-motion";
 import Image, { getImageProps } from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import SiteFooter from "@/components/layout/SiteFooter";
 import type { HomeCategorySlide } from "@/lib/home-data";
+import { scheduleIdle } from "@/lib/idle";
 import { IMAGE_QUALITY, isVectorImage } from "@/lib/images";
 import { SLIDER_DURATION, SLIDER_EASE } from "@/lib/motion";
 import type { StoreDetails } from "@/lib/site-config";
@@ -45,6 +53,9 @@ const CLICK_SUPPRESS_MS = 400;
 const MOBILE_MEDIA = "(max-width: 47.999rem)";
 /** Slides fetched eagerly on load; the rest stay lazy. */
 const EAGER_SLIDES = 2;
+
+/** Snap with no animation: an in-between slide on a multi-step jump. */
+const INSTANT_TRANSITION = { duration: 0 };
 
 /** Elements marked with this attribute scroll on their own (e.g. the footer). */
 const SCROLLABLE_SELECTOR = "[data-scrollable]";
@@ -92,13 +103,59 @@ function slideSrcSet(src: string) {
   );
 }
 
-export default function CategorySlider({
+/**
+ * True on touch-first devices. The full-screen image zoom (the subtle 1.06
+ * depth on the slide being covered) is a transform on a viewport-sized layer,
+ * which is the most expensive thing the cover animation can do on a phone GPU.
+ * On touch it is skipped entirely; a fine pointer keeps it exactly as before.
+ *
+ * Starts `false` so server and first client render agree; the media query is
+ * only read after mount (and re-read on change), so there is never a hydration
+ * mismatch.
+ */
+function useCoarsePointer(): boolean {
+  const [coarse, setCoarse] = useState(false);
+
+  useEffect(() => {
+    const query = window.matchMedia("(hover: none), (pointer: coarse)");
+    const update = () => setCoarse(query.matches);
+
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return coarse;
+}
+
+/**
+ * Every slide's rest position is `y: 0` for the active slide and every slide
+ * before it, and `y: 100%` for the slides still waiting below. That is what
+ * turns the stack into a *cover*: the next slide rises from the bottom over the
+ * one that is showing (which stays put), and going back up the top slide slides
+ * back down to reveal the one already in place beneath it.
+ *
+ * `fromIndex` is the slide a transition started on (`null` once it has landed).
+ * A single gesture or a dot jump of any distance is one cover animation: the
+ * target is the only slide that moves. On a multi-step jump the slides strictly
+ * between the two ends are `skip`ped — they snap straight to their rest
+ * position (behind the base, so never seen) instead of animating through.
+ */
+type SlideMotion = {
+  y: string;
+  zIndex: number;
+  /** Snap with no animation: an in-between slide on a multi-step jump. */
+  skip: boolean;
+};
+
+function CategorySlider({
   categories,
   details,
   onFooterActiveChange,
   onActiveImageUrlChange,
 }: CategorySliderProps) {
   const reduceMotion = useReducedMotion();
+  const zoomEnabled = !useCoarsePointer();
   const total = categories.length + 1; // category slides + the footer slide
   const totalRef = useRef(total);
   const indexRef = useRef(0);
@@ -106,8 +163,20 @@ export default function CategorySlider({
   const lastMoveAtRef = useRef(0);
 
   const [index, setIndex] = useState(0);
+  /** The slide the current cover animation started from; `null` once landed. */
+  const [fromIndex, setFromIndex] = useState<number | null>(null);
 
   const suppressClickRef = useRef(false);
+
+  /**
+   * The mounted slide elements, by slide index. Used only to walk the DOM once
+   * per landed slide and decode the neighbours' images ahead of time.
+   */
+  const slideRefs = useRef<Array<HTMLElement | null>>([]);
+
+  const registerSlide = useCallback((slide: number, element: HTMLElement | null) => {
+    slideRefs.current[slide] = element;
+  }, []);
 
   useEffect(() => {
     totalRef.current = total;
@@ -120,6 +189,35 @@ export default function CategorySlider({
   useEffect(() => {
     onFooterActiveChange(index === total - 1);
   }, [index, total, onFooterActiveChange]);
+
+  /*
+   * Decode the current slide and its immediate neighbours once the current one
+   * has landed. Decoded bitmaps are what the compositor needs during the cover;
+   * doing it here (current + idle for the neighbours) means the transition
+   * itself never triggers a full-size image decode on the main thread.
+   */
+  const decodeSlide = useCallback((slide: number) => {
+    const target = slideRefs.current[slide];
+    const image = target?.querySelector("img");
+    if (image && typeof image.decode === "function" && image.currentSrc) {
+      void image.decode().catch(() => {});
+    }
+  }, []);
+
+  useEffect(() => {
+    decodeSlide(index);
+
+    let cancelled = false;
+    scheduleIdle(() => {
+      if (cancelled) return;
+      decodeSlide(index + 1);
+      decodeSlide(index - 1);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [index, decodeSlide]);
 
   /*
    * Which image is really on screen: the `<picture>` below takes the mobile
@@ -158,6 +256,10 @@ export default function CategorySlider({
 
     lockedRef.current = true;
     lastMoveAtRef.current = Date.now();
+    // Report the target straight away so the dot rail, the adaptive header tone
+    // and the footer/navbar visibility all switch in sync with the animation.
+    setFromIndex(indexRef.current);
+    indexRef.current = clamped;
     setIndex(clamped);
   }, []);
 
@@ -168,6 +270,7 @@ export default function CategorySlider({
 
     const timer = window.setTimeout(() => {
       lockedRef.current = false;
+      setFromIndex(null);
     }, TRANSITION_MS + 80);
 
     return () => window.clearTimeout(timer);
@@ -404,97 +507,99 @@ export default function CategorySlider({
   }, [goTo]);
 
   const duration = reduceMotion ? 0.01 : SLIDER_DURATION;
-  const ease = SLIDER_EASE;
-  const transition = { duration, ease };
+  const footerIndex = total - 1;
+
+  const footerCategories = useMemo(
+    () => categories.map(({ name, slug }) => ({ name, slug })),
+    [categories],
+  );
+
+  /**
+   * One slide's cover state. See `SlideMotion` for the model:
+   * - descending (`from < index`): the target covers the one that was showing;
+   * - ascending (`from > index`): the target is revealed beneath the leaving top;
+   * - anything strictly between the two ends is `skip`ped (snapped, not animated).
+   */
+  const slideMotion = useCallback((slide: number): SlideMotion => {
+    if (fromIndex === null) {
+      return {
+        y: slide <= index ? "0%" : "100%",
+        zIndex: slide === index ? 1 : 0,
+        skip: false,
+      };
+    }
+
+    if (index > fromIndex) {
+      // Descending: the target rises over the slide that was showing.
+      if (slide === index) return { y: "0%", zIndex: 3, skip: false };
+      if (slide === fromIndex) return { y: "0%", zIndex: 2, skip: false };
+      if (slide > fromIndex && slide < index) {
+        return { y: "0%", zIndex: 0, skip: true };
+      }
+      return {
+        y: slide <= index ? "0%" : "100%",
+        zIndex: 1,
+        skip: false,
+      };
+    }
+
+    // Ascending: the leaving top slides back down over the target below it.
+    if (slide === fromIndex) return { y: "100%", zIndex: 3, skip: false };
+    if (slide === index) return { y: "0%", zIndex: 2, skip: false };
+    if (slide > index && slide < fromIndex) {
+      return { y: "100%", zIndex: 0, skip: true };
+    }
+    return { y: slide <= index ? "0%" : "100%", zIndex: 1, skip: false };
+  }, [fromIndex, index]);
+
+  const footerMotion = slideMotion(footerIndex);
 
   return (
     <div
-      className="absolute inset-0 h-[100dvh] overflow-hidden overscroll-none"
+      className="absolute inset-0 h-full overflow-hidden overscroll-none"
       aria-roledescription="carousel"
       aria-label="Shop by category"
     >
       {categories.map((category, slideIndex) => {
-        const isActive = slideIndex === index;
-        const isPast = slideIndex < index;
+        const state = slideMotion(slideIndex);
 
         return (
-          <motion.section
+          <CategorySlide
             key={category.id}
-            className="absolute inset-0 h-[100dvh]"
-            initial={false}
-            animate={{ y: isPast ? "-100%" : isActive ? "0%" : "100%" }}
-            transition={transition}
-            style={{ zIndex: isActive ? 1 : 0, willChange: "transform" }}
-            aria-hidden={!isActive}
-            inert={!isActive}
-          >
-            <motion.div
-              className="absolute inset-0"
-              initial={false}
-              animate={{ scale: isActive ? 1 : 1.06 }}
-              transition={transition}
-              style={{ willChange: "transform" }}
-            >
-              <picture className="absolute inset-0 block">
-                {category.mobileImageUrl ? (
-                  <source
-                    media={MOBILE_MEDIA}
-                    sizes="100vw"
-                    srcSet={slideSrcSet(category.mobileImageUrl)}
-                  />
-                ) : null}
-                {/*
-                  Only the first slide gets `priority`. That marks it as the
-                  LCP image (killing the "add loading='eager'" warning) and
-                  emits a preload for the desktop candidate. On mobile the
-                  <source> above can still win: the preload is a small extra
-                  fetch, but slide 0 is the landing view, so prioritising it is
-                  the right trade. Everything after slide 1 stays lazy.
-                */}
-                <Image
-                  src={category.imageUrl}
-                  alt=""
-                  fill
-                  priority={slideIndex === 0}
-                  loading={slideIndex < EAGER_SLIDES ? "eager" : "lazy"}
-                  fetchPriority={slideIndex < EAGER_SLIDES ? "high" : undefined}
-                  unoptimized={isVectorImage(category.imageUrl)}
-                  quality={IMAGE_QUALITY}
-                  sizes="100vw"
-                  className="object-cover"
-                />
-              </picture>
-            </motion.div>
-
-            <Link
-              href={`/category/${category.slug}`}
-              className="absolute inset-0 block"
-              tabIndex={isActive ? 0 : -1}
-            >
-              <span className="sr-only">{category.name}</span>
-            </Link>
-          </motion.section>
+            category={category}
+            slideIndex={slideIndex}
+            y={state.y}
+            zIndex={state.zIndex}
+            skip={state.skip}
+            visible={isSlidePainted(slideIndex, index, fromIndex, state.skip)}
+            animating={
+              fromIndex !== null &&
+              (slideIndex === index || slideIndex === fromIndex)
+            }
+            isActive={slideIndex === index}
+            duration={duration}
+            zoomEnabled={zoomEnabled}
+            registerSlide={registerSlide}
+          />
         );
       })}
 
-      <motion.section
-        className="absolute inset-0 h-[100dvh]"
-        initial={false}
-        animate={{ y: index >= total - 1 ? "0%" : "100%" }}
-        transition={transition}
-        style={{
-          zIndex: index === total - 1 ? 1 : 0,
-          willChange: "transform",
-        }}
-        aria-hidden={index !== total - 1}
-        inert={index !== total - 1}
-        aria-label="Footer"
-      >
-        <SiteFooter
-          categories={categories.map(({ name, slug }) => ({ name, slug }))}
-          details={details}
-        />
-      </motion.section>
+      <FooterSlide
+        slideIndex={footerIndex}
+        categories={footerCategories}
+        details={details}
+        y={footerMotion.y}
+        zIndex={footerMotion.zIndex}
+        skip={footerMotion.skip}
+        visible={isSlidePainted(footerIndex, index, fromIndex, footerMotion.skip)}
+        animating={
+          fromIndex !== null &&
+          (footerIndex === index || footerIndex === fromIndex)
+        }
+        isActive={footerIndex === index}
+        duration={duration}
+        registerSlide={registerSlide}
+      />
 
       {/*
         The rail's static white/black dots sit on the category images. The
@@ -513,6 +618,183 @@ export default function CategorySlider({
     </div>
   );
 }
+
+/**
+ * A slide paints only while it is the active one or the one being covered —
+ * every other slide is mounted (so its image still loads and its position is
+ * kept) but `visibility: hidden`, so the compositor never rasterises a
+ * viewport-sized layer that cannot be seen. `skip` slides are always hidden.
+ */
+function isSlidePainted(
+  slide: number,
+  index: number,
+  fromIndex: number | null,
+  skip: boolean,
+): boolean {
+  return !skip && (slide === index || slide === fromIndex);
+}
+
+/**
+ * Memoised so the homepage's own re-renders (the adaptive header tone, the
+ * footer flag) never re-render the slider and its full-screen image tree.
+ * Every prop is stable: the arrays/objects come from the server, and the two
+ * callbacks are `useCallback`-wrapped in `HomeExperience`.
+ */
+export default memo(CategorySlider);
+
+type CategorySlideProps = {
+  category: HomeCategorySlide;
+  slideIndex: number;
+  y: string;
+  zIndex: number;
+  skip: boolean;
+  visible: boolean;
+  animating: boolean;
+  isActive: boolean;
+  duration: number;
+  zoomEnabled: boolean;
+  registerSlide: (slide: number, element: HTMLElement | null) => void;
+};
+
+/**
+ * One category slide, memoised so a slide change re-renders only the two slides
+ * the cover actually touches. Every prop is a primitive or a stable reference
+ * (the category object, the register callback), so the untouched slides — and
+ * their full-screen `<Image>` trees — are skipped entirely.
+ */
+const CategorySlide = memo(function CategorySlide({
+  category,
+  slideIndex,
+  y,
+  zIndex,
+  skip,
+  visible,
+  animating,
+  isActive,
+  duration,
+  zoomEnabled,
+  registerSlide,
+}: CategorySlideProps) {
+  return (
+    <motion.section
+      ref={(element) => registerSlide(slideIndex, element)}
+      // `touch-none` stops the browser from starting its own pan/overscroll on
+      // the slide while a swipe is being handled by the slider. The footer
+      // slide (a sibling, not a descendant) keeps its own native scrolling.
+      className="absolute inset-0 h-full touch-none"
+      initial={false}
+      animate={{ y }}
+      transition={skip ? INSTANT_TRANSITION : { duration, ease: SLIDER_EASE }}
+      style={{
+        zIndex,
+        // Hidden slides keep their layout and decoded image but never paint.
+        visibility: visible ? "visible" : "hidden",
+        // Promote to a compositor layer only while this slide is animating;
+        // pinning every full-screen slide to its own layer is what drops frames
+        // on older phones.
+        willChange: animating ? "transform" : "auto",
+      }}
+      aria-hidden={!isActive}
+      inert={!isActive}
+    >
+      <motion.div
+        className="absolute inset-0"
+        initial={false}
+        // The subtle depth zoom is desktop-only (see `useCoarsePointer`).
+        animate={{ scale: zoomEnabled && !isActive ? 1.06 : 1 }}
+        transition={skip ? INSTANT_TRANSITION : { duration, ease: SLIDER_EASE }}
+        style={{ willChange: animating && zoomEnabled ? "transform" : "auto" }}
+      >
+        <picture className="absolute inset-0 block">
+          {category.mobileImageUrl ? (
+            <source
+              media={MOBILE_MEDIA}
+              sizes="100vw"
+              srcSet={slideSrcSet(category.mobileImageUrl)}
+            />
+          ) : null}
+          {/*
+            Only the first slide gets `priority`. That marks it as the LCP image
+            (killing the "add loading='eager'" warning) and emits a preload for
+            the desktop candidate. On mobile the <source> above can still win:
+            the preload is a small extra fetch, but slide 0 is the landing view,
+            so prioritising it is the right trade. The next slide is eager too;
+            everything after stays lazy.
+          */}
+          <Image
+            src={category.imageUrl}
+            alt=""
+            fill
+            priority={slideIndex === 0}
+            loading={slideIndex < EAGER_SLIDES ? "eager" : "lazy"}
+            fetchPriority={slideIndex < EAGER_SLIDES ? "high" : undefined}
+            unoptimized={isVectorImage(category.imageUrl)}
+            quality={IMAGE_QUALITY}
+            sizes="100vw"
+            className="object-cover"
+          />
+        </picture>
+      </motion.div>
+
+      <Link
+        href={`/category/${category.slug}`}
+        className="absolute inset-0 block"
+        tabIndex={isActive ? 0 : -1}
+      >
+        <span className="sr-only">{category.name}</span>
+      </Link>
+    </motion.section>
+  );
+});
+
+type FooterSlideProps = {
+  slideIndex: number;
+  categories: { name: string; slug: string }[];
+  details: StoreDetails;
+  y: string;
+  zIndex: number;
+  skip: boolean;
+  visible: boolean;
+  animating: boolean;
+  isActive: boolean;
+  duration: number;
+  registerSlide: (slide: number, element: HTMLElement | null) => void;
+};
+
+/** The footer slide; memoised like the category slides. */
+const FooterSlide = memo(function FooterSlide({
+  slideIndex,
+  categories,
+  details,
+  y,
+  zIndex,
+  skip,
+  visible,
+  animating,
+  isActive,
+  duration,
+  registerSlide,
+}: FooterSlideProps) {
+  return (
+    <motion.section
+      ref={(element) => registerSlide(slideIndex, element)}
+      className="absolute inset-0 h-full"
+      initial={false}
+      animate={{ y }}
+      transition={skip ? INSTANT_TRANSITION : { duration, ease: SLIDER_EASE }}
+      style={{
+        zIndex,
+        visibility: visible ? "visible" : "hidden",
+        willChange: animating ? "transform" : "auto",
+      }}
+      aria-hidden={!isActive}
+      inert={!isActive}
+      aria-label="Footer"
+    >
+      <SiteFooter categories={categories} details={details} />
+    </motion.section>
+  );
+});
 
 type DotRailProps = {
   total: number;

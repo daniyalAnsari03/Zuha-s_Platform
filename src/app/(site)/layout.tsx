@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 
+import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import PageFooter from "@/components/layout/PageFooter";
@@ -84,6 +85,9 @@ export default async function SiteLayout({
           details={details}
         />
       </div>
+
+      {/* Fixed to the viewport, so it floats over every storefront page. */}
+      <CurrencySwitcher />
     </QuickViewProvider>
   );
 }

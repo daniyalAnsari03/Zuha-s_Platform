@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import Price from "@/components/currency/Price";
 import { EyeIcon, HeartIcon } from "@/components/icons";
 import FadeInImage from "@/components/ui/FadeInImage";
 import PopOnChange from "@/components/ui/PopOnChange";
@@ -16,7 +17,6 @@ import {
   type ProductListItem,
 } from "@/lib/products";
 import { IMAGE_QUALITY } from "@/lib/images";
-import { formatAmount } from "@/lib/order-types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -263,17 +263,20 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
           {isDiscounted ? (
             <>
-              <span className="text-sm text-black/40 line-through sm:text-base">
-                {formatAmount(product.price)}
-              </span>
-              <span className="text-sm font-medium text-plum sm:text-base">
-                {formatAmount(product.discountPrice ?? product.price)}
-              </span>
+              <Price
+                amount={product.price}
+                className="text-sm text-black/40 line-through sm:text-base"
+              />
+              <Price
+                amount={product.discountPrice ?? product.price}
+                className="text-sm font-medium text-plum sm:text-base"
+              />
             </>
           ) : (
-            <span className="text-sm sm:text-base">
-              {formatAmount(product.price)}
-            </span>
+            <Price
+              amount={product.price}
+              className="text-sm sm:text-base"
+            />
           )}
         </p>
       </div>

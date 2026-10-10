@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import Price from "@/components/currency/Price";
 import { CloseIcon, ExpandIcon, HeartIcon } from "@/components/icons";
 import FadeInImage from "@/components/ui/FadeInImage";
 import PopOnChange from "@/components/ui/PopOnChange";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { IMAGE_QUALITY } from "@/lib/images";
-import { formatAmount } from "@/lib/order-types";
 import { discountPercent, effectivePrice } from "@/lib/products";
 import { cn } from "@/lib/utils";
 
@@ -474,20 +474,23 @@ export default function ProductDetailContent({
           <p className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             {isDiscounted ? (
               <>
-                <span className="text-base text-black/40 line-through sm:text-lg">
-                  {formatAmount(product.price)}
-                </span>
-                <span className="text-base font-medium text-plum sm:text-lg">
-                  {formatAmount(product.discountPrice ?? product.price)}
-                </span>
+                <Price
+                  amount={product.price}
+                  className="text-base text-black/40 line-through sm:text-lg"
+                />
+                <Price
+                  amount={product.discountPrice ?? product.price}
+                  className="text-base font-medium text-plum sm:text-lg"
+                />
                 <span className="bg-plum px-2 py-0.5 text-[11px] font-medium uppercase tracking-[0.06em] text-white">
                   {percent}% OFF
                 </span>
               </>
             ) : (
-              <span className="text-base sm:text-lg">
-                {formatAmount(product.price)}
-              </span>
+              <Price
+                amount={product.price}
+                className="text-base sm:text-lg"
+              />
             )}
           </p>
         </div>

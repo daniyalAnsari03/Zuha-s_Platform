@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import Price from "@/components/currency/Price";
 import { CloseIcon, SearchIcon } from "@/components/icons";
 import FadeInImage from "@/components/ui/FadeInImage";
 import NavbarPopover from "@/components/layout/NavbarPopover";
@@ -15,7 +16,6 @@ import {
   fadeUpVariant,
   staggerContainer,
 } from "@/lib/motion";
-import { formatAmount } from "@/lib/order-types";
 import { discountPercentFor, effectivePrice } from "@/lib/products";
 import {
   loadCategoryIndex,
@@ -243,18 +243,20 @@ export default function SearchPopup({ open, onClose, anchorRef }: SearchPopupPro
                         <span className="shrink-0 text-sm">
                           {discountPercentFor(product.price, product.discountPrice) !== null ? (
                             <span className="flex items-baseline gap-2">
-                              <span className="text-xs text-black/40 line-through">
-                                {formatAmount(product.price)}
-                              </span>
-                              <span className="font-medium text-plum">
-                                {formatAmount(effectivePrice(product))}
-                              </span>
+                              <Price
+                                amount={product.price}
+                                className="text-xs text-black/40 line-through"
+                              />
+                              <Price
+                                amount={effectivePrice(product)}
+                                className="font-medium text-plum"
+                              />
                               <span className="bg-plum px-1.5 py-0.5 text-[10px] font-medium tracking-[0.06em] text-white uppercase">
                                 {discountPercentFor(product.price, product.discountPrice)}% off
                               </span>
                             </span>
                           ) : (
-                            formatAmount(product.price)
+                            <Price amount={product.price} />
                           )}
                         </span>
                       </Link>
