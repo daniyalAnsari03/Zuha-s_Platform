@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import { CONTENT_CONTAINER } from "@/lib/content-container";
 import { getStorePolicy, getStorePolicySlugs } from "@/lib/policy-data";
+import { renderPolicyText } from "@/lib/policy-text";
 import {
   isStorePolicySlug,
   STORE_POLICY_TITLES,
@@ -101,7 +102,7 @@ export default async function PolicyPage({ params }: PageProps) {
                 key={index}
                 className="min-w-0 max-w-full whitespace-pre-line text-sm leading-relaxed break-words text-black/80 [overflow-wrap:anywhere] sm:text-base"
               >
-                {paragraph}
+                {renderPolicyText(paragraph)}
               </p>
             ))}
           </div>

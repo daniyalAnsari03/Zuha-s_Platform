@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 
 import {
   ADMIN_PRIMARY_BUTTON_CLASS,
@@ -38,6 +38,8 @@ export default function StorePoliciesManager({
   } | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
   const current = policies.find((policy) => policy.slug === selected);
 
   const select = (slug: string) => {
@@ -48,6 +50,56 @@ export default function StorePoliciesManager({
   const edit = (value: string) => {
     setDrafts((current) => ({ ...current, [selected]: value }));
     setStatus(null);
+  };
+
+  /**
+   * Wraps the current textarea selection in `**` to make it bold, or strips the
+   * markers when the selection is already wrapped (a toggle). Nothing selected
+   * inserts `****` and leaves the cursor between the middle asterisks. Selection
+   * and focus are restored after the draft state lands.
+   */
+  const toggleBold = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const value = textarea.value;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = value.slice(start, end);
+
+    let next: string;
+    let cursorStart: number;
+    let cursorEnd: number;
+
+    if (start === end) {
+      next = `${value.slice(0, start)}****${value.slice(end)}`;
+      cursorStart = start + 2;
+      cursorEnd = cursorStart;
+    } else if (value.slice(start - 2, start) === "**" && value.slice(end, end + 2) === "**") {
+      next = value.slice(0, start - 2) + selectedText + value.slice(end + 2);
+      cursorStart = start - 2;
+      cursorEnd = cursorStart + selectedText.length;
+    } else if (
+      selectedText.length >= 4 &&
+      selectedText.startsWith("**") &&
+      selectedText.endsWith("**")
+    ) {
+      const inner = selectedText.slice(2, -2);
+      next = value.slice(0, start) + inner + value.slice(end);
+      cursorStart = start;
+      cursorEnd = cursorStart + inner.length;
+    } else {
+      next = value.slice(0, start) + `**${selectedText}**` + value.slice(end);
+      cursorStart = start + 2;
+      cursorEnd = cursorStart + selectedText.length;
+    }
+
+    edit(next);
+
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursorStart, cursorEnd);
+    });
   };
 
   const save = () => {
@@ -72,8 +124,9 @@ export default function StorePoliciesManager({
         <AdminSectionTitle>Store policies</AdminSectionTitle>
 
         <p className="text-sm leading-relaxed text-black/60">
-          The text shown on each policy page. Plain text only — leave a blank
-          line between paragraphs.
+          The text shown on each policy page. Plain text, with a blank line
+          between paragraphs — wrap a run of text in <span className="font-semibold">**</span> to
+          make it bold.
         </p>
       </div>
 
@@ -108,15 +161,41 @@ export default function StorePoliciesManager({
             htmlFor="policy-content"
             hint={`${(drafts[selected] ?? "").length} / ${MAX_POLICY_LENGTH} characters`}
           >
-            <textarea
-              id="policy-content"
-              value={drafts[selected] ?? ""}
-              onChange={(event) => edit(event.target.value)}
-              maxLength={MAX_POLICY_LENGTH}
-              rows={16}
-              className={cn(ADMIN_TEXTAREA_CLASS, "min-h-[22rem] resize-y font-sans text-sm")}
-              placeholder="Write the policy here. Use a blank line to start a new paragraph."
-            />
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={toggleBold}
+                  onMouseDown={(event) => event.preventDefault()}
+                  aria-label="Bold"
+                  title="Bold"
+                  className="inline-flex h-9 w-9 items-center justify-center border border-black/15 bg-white text-sm font-bold text-black transition-colors hover:border-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                >
+                  B
+                </button>
+
+                <p className="text-xs text-black/45">
+                  Select text and click B to make it bold.
+                </p>
+              </div>
+
+              <textarea
+                ref={textareaRef}
+                id="policy-content"
+                value={drafts[selected] ?? ""}
+                onChange={(event) => edit(event.target.value)}
+                onKeyDown={(event) => {
+                  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "b") {
+                    event.preventDefault();
+                    toggleBold();
+                  }
+                }}
+                maxLength={MAX_POLICY_LENGTH}
+                rows={16}
+                className={cn(ADMIN_TEXTAREA_CLASS, "min-h-[22rem] resize-y font-sans text-sm")}
+                placeholder="Write the policy here. Use a blank line to start a new paragraph."
+              />
+            </div>
           </AdminField>
 
           <div className="flex flex-wrap items-center gap-4">
