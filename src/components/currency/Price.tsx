@@ -22,7 +22,7 @@ export default function Price({
   amount: number;
   className?: string;
 }) {
-  const { currency, rate, hydrated } = useCurrency();
+  const { currency, rates, hydrated } = useCurrency();
 
   return (
     <motion.span
@@ -32,7 +32,7 @@ export default function Price({
       transition={TRANSITION_POPOVER}
       className={className}
     >
-      {formatPrice(amount, currency, rate)}
+      {formatPrice(amount, currency, rates)}
     </motion.span>
   );
 }
@@ -42,6 +42,6 @@ export default function Price({
  * string rather than an element (e.g. an aria-label or a plain text node).
  */
 export function useFormatPrice(): (amount: number) => string {
-  const { currency, rate } = useCurrency();
-  return (amount: number) => formatPrice(amount, currency, rate);
+  const { currency, rates } = useCurrency();
+  return (amount: number) => formatPrice(amount, currency, rates);
 }

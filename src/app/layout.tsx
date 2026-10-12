@@ -5,7 +5,7 @@ import { CartProvider } from "@/components/cart/CartProvider";
 import { CurrencyProvider } from "@/components/currency/CurrencyProvider";
 import { WishlistProvider } from "@/components/wishlist/WishlistProvider";
 import MotionProvider from "@/components/layout/MotionProvider";
-import { getUsdRate } from "@/lib/currency-rate";
+import { getCurrencyRates } from "@/lib/currency-rate";
 import "./globals.css";
 
 const inter = Inter({
@@ -29,15 +29,15 @@ export const metadata: Metadata = {
  * heart) is rendered by the homepage as well as by the `(site)` layout.
  * `QuickViewProvider` stays in `(site)`, where product cards live.
  *
- * `CurrencyProvider` also sits here: the USD rate is read server-side (cached
- * behind the `store-details` tag) and passed in, so every storefront price —
- * homepage and `(site)` pages alike — can render in the shopper's chosen
+ * `CurrencyProvider` also sits here: the currency rates are read server-side
+ * (cached behind the `store-details` tag) and passed in, so every storefront
+ * price — homepage and `(site)` pages alike — can render in the shopper's chosen
  * currency without turning any static page dynamic.
  */
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const usdRate = await getUsdRate();
+  const rates = await getCurrencyRates();
 
   return (
     <html
@@ -45,7 +45,7 @@ export default async function RootLayout({
       className={`${inter.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-white text-black font-sans">
-        <CurrencyProvider usdRate={usdRate}>
+        <CurrencyProvider rates={rates}>
           <MotionProvider>
             <CartProvider>
               <WishlistProvider>{children}</WishlistProvider>

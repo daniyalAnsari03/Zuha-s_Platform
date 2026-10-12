@@ -13,7 +13,7 @@ import {
 
 import { useCurrency } from "@/components/currency/CurrencyProvider";
 import { ChevronDownIcon } from "@/components/icons";
-import { type Currency } from "@/lib/currency";
+import { CURRENCIES, type Currency } from "@/lib/currency";
 import {
   TRANSITION_POPOVER,
   TRANSITION_POPUP_EXIT,
@@ -28,26 +28,33 @@ const MENU_VARIANTS: Variants = {
   exit: { opacity: 0, y: 10, transition: TRANSITION_POPUP_EXIT },
 };
 
-const OPTIONS: { code: Currency; label: string; Flag: ComponentType }[] = [
-  { code: "PKR", label: "PKR", Flag: PakistanFlag },
-  { code: "USD", label: "USD", Flag: UsaFlag },
-];
+/** Each currency's flag, defined once and shared by the button and the menu. */
+const FLAGS: Record<Currency, ComponentType> = {
+  PKR: PakistanFlag,
+  USD: UsaFlag,
+  EUR: EuroFlag,
+  GBP: UkFlag,
+  AED: UaeFlag,
+  CAD: CanadaFlag,
+};
 
 /**
  * The storefront's currency switcher: a small white pill fixed at the bottom
  * left of every storefront page (including the homepage and the footer slide),
  * never in `/admin`.
  *
- * It renders nothing at all when the admin has not set a USD rate, because there
- * is then nothing to switch to. The menu opens *upward* above the button, closes
- * on an outside click and on Escape, and the chevron flips while it is open.
+ * It lists PKR plus every currency the admin has set a rate for (see
+ * `src/lib/currency.ts`), and renders nothing at all when PKR is the only
+ * option, because there is then nothing to switch to. The menu opens *upward*
+ * above the button, scrolls if it grows past the viewport, closes on an outside
+ * click and on Escape, and the chevron flips while it is open.
  *
  * It sits at `z-30`, below every popup/drawer/modal (the navbar's panels are
  * `z-40`, the drawers and quick view `z-50`), so it can never cover a dialog. On
  * mobile it is offset above the bottom safe area.
  */
 export default function CurrencySwitcher() {
-  const { currency, usdAvailable, setCurrency } = useCurrency();
+  const { currency, availableCurrencies, setCurrency } = useCurrency();
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -96,7 +103,13 @@ export default function CurrencySwitcher() {
     return () => cancelAnimationFrame(frame);
   }, [open]);
 
-  if (!usdAvailable) return null;
+  // PKR alone is not a choice: hide the switcher entirely.
+  if (availableCurrencies.length <= 1) return null;
+
+  const options = CURRENCIES.filter((code) =>
+    availableCurrencies.includes(code),
+  );
+  const ActiveFlag = FLAGS[currency];
 
   return (
     <div
@@ -116,10 +129,11 @@ export default function CurrencySwitcher() {
               initial="hidden"
               animate="show"
               exit="exit"
-              className="absolute bottom-full left-0 mb-2 w-40 overflow-hidden rounded-xl border border-black/10 bg-white p-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]"
+              className="absolute bottom-full left-0 mb-2 max-h-[min(60vh,20rem)] w-40 overflow-y-auto overscroll-contain rounded-xl border border-black/10 bg-white p-1 shadow-[0_10px_30px_rgba(0,0,0,0.16)]"
             >
-              {OPTIONS.map(({ code, label, Flag }) => {
+              {options.map((code) => {
                 const selected = currency === code;
+                const Flag = FLAGS[code];
 
                 return (
                   <button
@@ -139,7 +153,7 @@ export default function CurrencySwitcher() {
                     )}
                   >
                     <Flag />
-                    <span className="min-w-0 flex-1">{label}</span>
+                    <span className="min-w-0 flex-1">{code}</span>
                     {selected ? (
                       <CheckIcon className="h-4 w-4 shrink-0" />
                     ) : null}
@@ -160,7 +174,7 @@ export default function CurrencySwitcher() {
           onClick={() => setOpen((current) => !current)}
           className="flex min-h-11 items-center gap-2 rounded-full border border-black/10 bg-white py-1.5 pr-2.5 pl-3 text-xs font-medium tracking-[0.08em] text-black shadow-[0_2px_10px_rgba(0,0,0,0.18)] transition-colors hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
         >
-          {currency === "USD" ? <UsaFlag /> : <PakistanFlag />}
+          <ActiveFlag />
           <span>{currency}</span>
           {/*
             The menu opens upward, so the chevron rests pointing *up* (the
@@ -200,11 +214,16 @@ function CheckIcon(props: SVGProps<SVGSVGElement>) {
 }
 
 const FLAG_CLASS = "h-[14px] w-5 shrink-0 rounded-[2px]";
+const FLAG_PROPS = {
+  className: FLAG_CLASS,
+  "aria-hidden": true,
+  focusable: false,
+} as const;
 
 /** Pakistan: green field, white hoist stripe, crescent and star. */
 function PakistanFlag() {
   return (
-    <svg viewBox="0 0 20 14" className={FLAG_CLASS} aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
       <rect width="20" height="14" fill="#01411C" />
       <rect width="5" height="14" fill="#FFFFFF" />
       <circle cx="13" cy="7" r="3.1" fill="#FFFFFF" />
@@ -222,7 +241,7 @@ function UsaFlag() {
   const stripeHeight = 14 / 13;
 
   return (
-    <svg viewBox="0 0 20 14" className={FLAG_CLASS} aria-hidden="true" focusable="false">
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
       <rect width="20" height="14" fill="#FFFFFF" />
       {[0, 2, 4, 6, 8, 10, 12].map((index) => (
         <rect
@@ -249,6 +268,67 @@ function UsaFlag() {
       ].map(([cx, cy]) => (
         <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="0.5" fill="#FFFFFF" />
       ))}
+    </svg>
+  );
+}
+
+/** European Union: blue field, a ring of twelve gold stars. */
+function EuroFlag() {
+  const stars = Array.from({ length: 12 }, (_, index) => {
+    const angle = (index * 30 - 90) * (Math.PI / 180);
+
+    return {
+      cx: 10 + Math.cos(angle) * 4.1,
+      cy: 7 + Math.sin(angle) * 4.1,
+    };
+  });
+
+  return (
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
+      <rect width="20" height="14" fill="#003399" />
+      {stars.map((star, index) => (
+        <circle key={index} cx={star.cx} cy={star.cy} r="0.62" fill="#FFCC00" />
+      ))}
+    </svg>
+  );
+}
+
+/** United Kingdom: the Union Jack, simplified to its diagonals and cross. */
+function UkFlag() {
+  return (
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
+      <rect width="20" height="14" fill="#012169" />
+      <path d="M0 0 20 14M20 0 0 14" stroke="#FFFFFF" strokeWidth="2.4" />
+      <path d="M0 0 20 14M20 0 0 14" stroke="#C8102E" strokeWidth="1.1" />
+      <path d="M10 0V14M0 7H20" stroke="#FFFFFF" strokeWidth="3.2" />
+      <path d="M10 0V14M0 7H20" stroke="#C8102E" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+/** United Arab Emirates: red hoist bar, green/white/black horizontal bands. */
+function UaeFlag() {
+  return (
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
+      <rect width="20" height="14" fill="#FFFFFF" />
+      <rect width="20" height="4.67" fill="#00732F" />
+      <rect y="9.33" width="20" height="4.67" fill="#000000" />
+      <rect width="5" height="14" fill="#FF0000" />
+    </svg>
+  );
+}
+
+/** Canada: red-white-red vertical bands with a red maple leaf. */
+function CanadaFlag() {
+  return (
+    <svg viewBox="0 0 20 14" {...FLAG_PROPS}>
+      <rect width="20" height="14" fill="#FFFFFF" />
+      <rect width="5" height="14" fill="#FF0000" />
+      <rect x="15" width="5" height="14" fill="#FF0000" />
+      <path
+        d="M10 2.2 11 4.2 13 4.6 12 5.6 14.2 5.2 13 6.6 15.2 8 12.4 8.2 12.8 10.4 10 9.2 7.2 10.4 7.6 8.2 4.8 8 7 6.6 5.8 5.2 8 5.6 7 4.6 9 4.2Z"
+        fill="#FF0000"
+      />
     </svg>
   );
 }

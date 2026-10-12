@@ -292,31 +292,34 @@ export function readOptionalPrice(
   return price.ok ? { ok: true, value: price.value } : price;
 }
 
-/** The highest USD conversion rate the Settings form accepts ("1 USD = X PKR"). */
-export const MAX_USD_RATE = 10_000;
+/** The highest conversion rate the Settings form accepts ("1 <CUR> = X PKR"). */
+export const MAX_CURRENCY_RATE = 10_000;
 
 /**
- * The optional USD conversion rate ("1 USD = X PKR").
+ * An optional currency conversion rate ("1 <CUR> = X PKR").
  *
- * Empty means "no rate yet", which hides the USD option on the storefront
- * entirely. A set value has to be positive, no higher than {@link MAX_USD_RATE}
- * and carry at most two decimals (which the `numeric(12,2)` column also holds).
+ * Empty means "no rate yet", which hides that currency on the storefront
+ * entirely. A set value has to be positive, no higher than
+ * {@link MAX_CURRENCY_RATE} and carry at most two decimals (which the
+ * `numeric(12,2)` columns also hold). `label` names the currency in a refusal,
+ * e.g. `"USD rate"`.
  */
-export function readOptionalUsdRate(
+export function readOptionalCurrencyRate(
   value: unknown,
+  label: string,
 ): { ok: true; value: number | null } | ActionError {
   const raw = clean(value);
   if (!raw) return { ok: true, value: null };
 
   const rate = Number(raw);
 
-  if (!Number.isFinite(rate)) return actionFail("USD rate must be a number.");
-  if (rate <= 0) return actionFail("USD rate must be greater than zero.");
-  if (rate > MAX_USD_RATE) {
-    return actionFail(`USD rate must be ${MAX_USD_RATE} or less.`);
+  if (!Number.isFinite(rate)) return actionFail(`${label} must be a number.`);
+  if (rate <= 0) return actionFail(`${label} must be greater than zero.`);
+  if (rate > MAX_CURRENCY_RATE) {
+    return actionFail(`${label} must be ${MAX_CURRENCY_RATE} or less.`);
   }
   if (Math.round(rate * 100) !== rate * 100) {
-    return actionFail("USD rate can have at most two decimal places.");
+    return actionFail(`${label} can have at most two decimal places.`);
   }
 
   return { ok: true, value: rate };

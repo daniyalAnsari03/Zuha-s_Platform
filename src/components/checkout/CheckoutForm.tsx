@@ -341,10 +341,10 @@ export default function CheckoutForm({
 
         {/*
           The order is always placed and saved in PKR; only the display changes.
-          The real PKR total is repeated here so a USD shopper is never confused
-          about what the courier will collect.
+          The real PKR total is repeated here so a shopper paying in any other
+          currency is never confused about what the courier will collect.
         */}
-        {currency === "USD" ? (
+        {currency !== "PKR" ? (
           <p className="mt-3 text-xs leading-relaxed text-black/50">
             Order will be placed and charged in PKR (Rs {formatPkr(subtotal)})
           </p>

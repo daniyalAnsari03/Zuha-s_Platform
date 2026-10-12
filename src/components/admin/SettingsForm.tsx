@@ -11,7 +11,23 @@ import {
 } from "@/components/admin/admin-fields";
 import { saveStoreDetails, type StoreDetailsInput } from "@/lib/admin/settings";
 import type { AdminStoreDetails } from "@/lib/admin/queries";
-import { MAX_LINE_LENGTH, MAX_USD_RATE } from "@/lib/admin/validation";
+import { MAX_CURRENCY_RATE, MAX_LINE_LENGTH } from "@/lib/admin/validation";
+
+/**
+ * The supported display currencies, in switcher order. PKR is the base and has
+ * no rate field; every other code maps to its field in the form values.
+ */
+const RATE_FIELDS: {
+  code: string;
+  field: keyof StoreDetailsInput;
+  placeholder: string;
+}[] = [
+  { code: "USD", field: "usdRate", placeholder: "e.g. 280" },
+  { code: "EUR", field: "eurRate", placeholder: "e.g. 300" },
+  { code: "GBP", field: "gbpRate", placeholder: "e.g. 350" },
+  { code: "AED", field: "aedRate", placeholder: "e.g. 76" },
+  { code: "CAD", field: "cadRate", placeholder: "e.g. 205" },
+];
 
 /**
  * Settings: the store's public contact details and social links.
@@ -80,24 +96,35 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
       <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">
         <AdminSectionTitle>Currency</AdminSectionTitle>
 
-        <AdminField
-          label="USD rate (1 USD = ___ PKR)"
-          htmlFor="store-usd-rate"
-          hint="Used for the USD option on the storefront. Leave empty to hide USD."
-        >
-          <input
-            id="store-usd-rate"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            max={MAX_USD_RATE}
-            step="0.01"
-            value={values.usdRate}
-            onChange={set("usdRate")}
-            className={ADMIN_INPUT_CLASS}
-            placeholder="e.g. 280"
-          />
-        </AdminField>
+        <p className="text-xs text-black/45">
+          How many PKR one unit of each currency is worth. Used for the
+          storefront&apos;s switcher. Leave a currency empty to hide it. Prices
+          are always stored in PKR.
+        </p>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          {RATE_FIELDS.map(({ code, field, placeholder }) => (
+            <AdminField
+              key={code}
+              label={`${code} rate (1 ${code} = ___ PKR)`}
+              htmlFor={`store-${code.toLowerCase()}-rate`}
+              hint={`Leave empty to hide ${code}.`}
+            >
+              <input
+                id={`store-${code.toLowerCase()}-rate`}
+                type="number"
+                inputMode="decimal"
+                min={0}
+                max={MAX_CURRENCY_RATE}
+                step="0.01"
+                value={values[field]}
+                onChange={set(field)}
+                className={ADMIN_INPUT_CLASS}
+                placeholder={placeholder}
+              />
+            </AdminField>
+          ))}
+        </div>
       </section>
 
       <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">

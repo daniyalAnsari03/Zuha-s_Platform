@@ -1169,6 +1169,14 @@ export type AdminStoreDetails = {
   whatsapp: string;
   /** "1 USD = X PKR" as a string; empty means no rate. */
   usdRate: string;
+  /** "1 EUR = X PKR" as a string; empty means no rate. */
+  eurRate: string;
+  /** "1 GBP = X PKR" as a string; empty means no rate. */
+  gbpRate: string;
+  /** "1 AED = X PKR" as a string; empty means no rate. */
+  aedRate: string;
+  /** "1 CAD = X PKR" as a string; empty means no rate. */
+  cadRate: string;
 };
 
 export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
@@ -1181,6 +1189,10 @@ export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
   tiktok: "",
   whatsapp: "",
   usdRate: "",
+  eurRate: "",
+  gbpRate: "",
+  aedRate: "",
+  cadRate: "",
 };
 
 /**
@@ -1195,7 +1207,7 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
   const { data, error } = await db
     .from("store_details")
     .select(
-      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url, usd_rate",
+      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url, usd_rate, eur_rate, gbp_rate, aed_rate, cad_rate",
     )
     .eq("id", 1)
     .maybeSingle();
@@ -1221,6 +1233,10 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
     tiktok: data.tiktok_url,
     whatsapp: data.whatsapp_url,
     usdRate: data.usd_rate === null ? "" : String(data.usd_rate),
+    eurRate: data.eur_rate === null ? "" : String(data.eur_rate),
+    gbpRate: data.gbp_rate === null ? "" : String(data.gbp_rate),
+    aedRate: data.aed_rate === null ? "" : String(data.aed_rate),
+    cadRate: data.cad_rate === null ? "" : String(data.cad_rate),
   };
 }
 

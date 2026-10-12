@@ -11,18 +11,21 @@ import {
 
 import {
   DEFAULT_CURRENCY,
+  isCurrencyAvailable,
+  listAvailableCurrencies,
   readStoredCurrency,
   storeCurrency,
   type Currency,
+  type CurrencyRates,
 } from "@/lib/currency";
 
 type CurrencyContextValue = {
   /** The currency prices are shown in right now. */
   currency: Currency;
-  /** `1 USD = X PKR`, or `null` when the admin has not set one yet. */
-  rate: number | null;
-  /** True when USD can be offered at all (a positive rate exists). */
-  usdAvailable: boolean;
+  /** Every admin-set rate: `1 <CUR> = X PKR`. */
+  rates: CurrencyRates;
+  /** PKR plus every currency that has a rate, in switcher order. */
+  availableCurrencies: Currency[];
   /**
    * False during hydration, true afterwards. `<Price>` uses it to fade only the
    * switch, never the initial paint.
@@ -62,7 +65,7 @@ function getServerCurrencySnapshot(): Currency {
 /**
  * Holds the storefront's selected currency.
  *
- * The rate is read server-side and passed in (see `src/lib/currency-rate.ts`),
+ * The rates are read server-side and passed in (see `src/lib/currency-rate.ts`),
  * so this stays a thin client provider and statically generated pages keep
  * working. The selected currency is deliberately PKR on the server and on the
  * first client render — the saved choice is read through `useSyncExternalStore`,
@@ -70,13 +73,12 @@ function getServerCurrencySnapshot(): Currency {
  * swaps in the client value, so there is never a hydration mismatch.
  */
 export function CurrencyProvider({
-  usdRate,
+  rates,
   children,
 }: {
-  usdRate: number | null;
+  rates: CurrencyRates;
   children: ReactNode;
 }) {
-  const usdAvailable = usdRate !== null && usdRate > 0;
   const stored = useSyncExternalStore(
     subscribe,
     getCurrencySnapshot,
@@ -88,10 +90,17 @@ export function CurrencyProvider({
     () => false,
   );
 
-  // A saved USD choice is only honoured while a rate still exists; otherwise the
-  // shopper is left on PKR rather than shown a broken conversion.
-  const currency: Currency =
-    usdAvailable && stored === "USD" ? "USD" : DEFAULT_CURRENCY;
+  const availableCurrencies = useMemo(
+    () => listAvailableCurrencies(rates),
+    [rates],
+  );
+
+  // A saved choice is only honoured while its rate still exists; if the admin
+  // has cleared it, the shopper falls back to PKR rather than a broken
+  // conversion.
+  const currency: Currency = isCurrencyAvailable(stored, rates)
+    ? stored
+    : DEFAULT_CURRENCY;
 
   const setCurrency = useCallback((next: Currency) => {
     storeCurrency(next);
@@ -101,12 +110,12 @@ export function CurrencyProvider({
   const value = useMemo<CurrencyContextValue>(
     () => ({
       currency,
-      rate: usdRate,
-      usdAvailable,
+      rates,
+      availableCurrencies,
       hydrated,
       setCurrency,
     }),
-    [currency, usdRate, usdAvailable, hydrated, setCurrency],
+    [currency, rates, availableCurrencies, hydrated, setCurrency],
   );
 
   return (

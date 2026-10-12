@@ -22,9 +22,9 @@ import {
   actionFail,
   actionOk,
   readLine,
+  readOptionalCurrencyRate,
   readOptionalEmail,
   readOptionalLink,
-  readOptionalUsdRate,
   type ActionResult,
 } from "@/lib/admin/validation";
 
@@ -43,6 +43,14 @@ export type StoreDetailsInput = {
    * USD option. Kept as a string because the form field is text.
    */
   usdRate: string;
+  /** "1 EUR = X PKR" as typed. Empty hides EUR on the storefront. */
+  eurRate: string;
+  /** "1 GBP = X PKR" as typed. Empty hides GBP on the storefront. */
+  gbpRate: string;
+  /** "1 AED = X PKR" as typed. Empty hides AED on the storefront. */
+  aedRate: string;
+  /** "1 CAD = X PKR" as typed. Empty hides CAD on the storefront. */
+  cadRate: string;
 };
 
 /** The single row's id. Seeded by migration 010. */
@@ -77,8 +85,20 @@ export async function saveStoreDetails(
   const whatsapp = readOptionalLink(input?.whatsapp, "WhatsApp link");
   if (!whatsapp.ok) return whatsapp;
 
-  const usdRate = readOptionalUsdRate(input?.usdRate);
+  const usdRate = readOptionalCurrencyRate(input?.usdRate, "USD rate");
   if (!usdRate.ok) return usdRate;
+
+  const eurRate = readOptionalCurrencyRate(input?.eurRate, "EUR rate");
+  if (!eurRate.ok) return eurRate;
+
+  const gbpRate = readOptionalCurrencyRate(input?.gbpRate, "GBP rate");
+  if (!gbpRate.ok) return gbpRate;
+
+  const aedRate = readOptionalCurrencyRate(input?.aedRate, "AED rate");
+  if (!aedRate.ok) return aedRate;
+
+  const cadRate = readOptionalCurrencyRate(input?.cadRate, "CAD rate");
+  if (!cadRate.ok) return cadRate;
 
   const db = getAdminDb();
 
@@ -92,6 +112,10 @@ export async function saveStoreDetails(
     tiktok_url: tiktok.value,
     whatsapp_url: whatsapp.value,
     usd_rate: usdRate.value,
+    eur_rate: eurRate.value,
+    gbp_rate: gbpRate.value,
+    aed_rate: aedRate.value,
+    cad_rate: cadRate.value,
   };
 
   const { error } = await db
@@ -101,9 +125,10 @@ export async function saveStoreDetails(
   if (error) {
     console.error("[admin] could not save the store details.", error.message);
 
-    // The most likely cause by far: migration 010 has not been run yet.
+    // The most likely cause by far: migration 010 (or 015/016 for the rate
+    // column) has not been run yet.
     return actionFail(
-      "Could not save the settings. Run supabase/migrations/010_store_details.sql first, then try again.",
+      "Could not save the settings. Run supabase/migrations/010_store_details.sql, 015_usd_rate.sql and 016_currency_rates.sql first, then try again.",
     );
   }
 

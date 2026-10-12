@@ -191,6 +191,14 @@ export type StoreDetails = {
   whatsapp_url: string;
   /** `1 USD = X PKR` (migration 015). NULL hides the USD option. */
   usd_rate: number | null;
+  /** `1 EUR = X PKR` (migration 016). NULL hides the EUR option. */
+  eur_rate: number | null;
+  /** `1 GBP = X PKR` (migration 016). NULL hides the GBP option. */
+  gbp_rate: number | null;
+  /** `1 AED = X PKR` (migration 016). NULL hides the AED option. */
+  aed_rate: number | null;
+  /** `1 CAD = X PKR` (migration 016). NULL hides the CAD option. */
+  cad_rate: number | null;
   updated_at: string;
 };
 
