@@ -3,26 +3,23 @@
 import { useCallback, useState } from "react";
 
 import TeamMemberDialog from "@/components/team/TeamMemberDialog";
-import CircleCarousel, {
-  CIRCLE_CARD_ACTION_CLASS,
-  CIRCLE_CARD_IMAGE_SIZES,
-  CircleCard,
-} from "@/components/ui/CircleCarousel";
-import type { TeamMemberSlide } from "@/lib/team-data";
+import CoverflowCarousel from "@/components/ui/CoverflowCarousel";
 import { CONTENT_CONTAINER } from "@/lib/content-container";
+import type { TeamMemberSlide } from "@/lib/team-data";
 
 type TeamCarouselProps = {
   members: TeamMemberSlide[];
 };
 
 /**
- * The Team page: the same circular-card carousel as the sub-category page,
- * showing one circle and a name per member and nothing else.
+ * The Team page: the same 3D coverflow as the sub-category page, showing one
+ * portrait card and a name per member and nothing else.
  *
- * Tapping a circle opens that member's full detail in a popup on this same page,
- * so the carousel is never replaced by a wall of bios. The roster arrives whole
- * (the server already read it) so the popup opens instantly; the role and bio
- * are in the page payload but are never rendered here.
+ * Activating the centred card opens that member's full detail in a popup on
+ * this same page, so the carousel is never replaced by a wall of bios. The
+ * roster arrives whole (the server already read it) so the popup opens
+ * instantly; the role and bio are in the page payload but are never rendered
+ * here.
  */
 export default function TeamCarousel({ members }: TeamCarouselProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -30,6 +27,9 @@ export default function TeamCarousel({ members }: TeamCarouselProps) {
   // Stable identity, so the popup's scroll-lock effect does not re-run on every
   // render of this component.
   const close = useCallback(() => setSelectedId(null), []);
+  const open = useCallback((member: TeamMemberSlide) => {
+    setSelectedId(member.id);
+  }, []);
 
   // Looked up by id rather than holding the object, so the popup always shows the
   // member as it is right now.
@@ -45,11 +45,10 @@ export default function TeamCarousel({ members }: TeamCarouselProps) {
 
   return (
     <>
-      <CircleCarousel
+      <CoverflowCarousel
         ariaLabel="Team members"
-        trackId="team-member-track"
-        className={CONTENT_CONTAINER}
         headingId="team-heading"
+        className={CONTENT_CONTAINER}
         heading={
           <h1
             id="team-heading"
@@ -59,20 +58,7 @@ export default function TeamCarousel({ members }: TeamCarouselProps) {
           </h1>
         }
         items={members}
-        renderAction={(member) => (
-          <button
-            type="button"
-            onClick={() => setSelectedId(member.id)}
-            aria-haspopup="dialog"
-            className={CIRCLE_CARD_ACTION_CLASS}
-          >
-            <CircleCard
-              name={member.name}
-              imageUrl={member.imageUrl}
-              sizes={CIRCLE_CARD_IMAGE_SIZES}
-            />
-          </button>
-        )}
+        onActivate={open}
       />
 
       <TeamMemberDialog member={selected} onClose={close} />

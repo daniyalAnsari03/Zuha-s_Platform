@@ -1,12 +1,6 @@
 "use client";
 
-import Link from "next/link";
-
-import CircleCarousel, {
-  CIRCLE_CARD_ACTION_CLASS,
-  CIRCLE_CARD_IMAGE_SIZES,
-  CircleCard,
-} from "@/components/ui/CircleCarousel";
+import CoverflowCarousel from "@/components/ui/CoverflowCarousel";
 import type { SubCategorySlide } from "@/lib/category-data";
 import { CONTENT_CONTAINER } from "@/lib/content-container";
 
@@ -17,12 +11,13 @@ type SubCategoryCarouselProps = {
 };
 
 /**
- * The sub-category page: a horizontal row of circular cards, one per
- * sub-category, opening that sub-category's product listing when tapped.
+ * The sub-category page: a 3D coverflow of portrait cards, one per
+ * sub-category. Activating the centred card opens that sub-category's product
+ * listing; tapping a side card just brings it to the centre.
  *
- * The carousel mechanics and the circle + name card are shared with the Team
- * page (see `components/ui/CircleCarousel`); this file only decides what a card
- * does.
+ * The coverflow mechanics and the image + name card are shared with the Team
+ * page (see `components/ui/CoverflowCarousel`); this file only decides where a
+ * card links to.
  */
 export default function SubCategoryCarousel({
   categoryName,
@@ -30,11 +25,10 @@ export default function SubCategoryCarousel({
   subCategories,
 }: SubCategoryCarouselProps) {
   return (
-    <CircleCarousel
+    <CoverflowCarousel
       ariaLabel={`${categoryName} sub-categories`}
-      trackId="sub-category-track"
-      className={CONTENT_CONTAINER}
       headingId="sub-category-heading"
+      className={CONTENT_CONTAINER}
       heading={
         <h1
           id="sub-category-heading"
@@ -44,18 +38,9 @@ export default function SubCategoryCarousel({
         </h1>
       }
       items={subCategories}
-      renderAction={(subCategory) => (
-        <Link
-          href={`/category/${categorySlug}/${subCategory.slug}`}
-          className={CIRCLE_CARD_ACTION_CLASS}
-        >
-          <CircleCard
-            name={subCategory.name}
-            imageUrl={subCategory.imageUrl}
-            sizes={CIRCLE_CARD_IMAGE_SIZES}
-          />
-        </Link>
-      )}
+      getHref={(subCategory) =>
+        `/category/${categorySlug}/${subCategory.slug}`
+      }
     />
   );
 }

@@ -70,11 +70,14 @@ ZUHA'S is a full-stack e-commerce clothing website with a customer storefront an
 - Clicking a category slide goes to that category's page: the sub-category page for Women's / Men's / Kid's, or straight to the product listing for Bag's / Jewellery.
 
 ### 4.2 Sub-Category Page (Women's / Men's / Kid's only)
-- NOT a full-screen slide design. It is a horizontal side-scrolling row of circular cards.
-- Desktop: multiple cards visible. Tablet: fewer. Mobile: 1 card at a time.
-- Left/right arrow buttons on desktop and mobile.
-- Each card: circular image + name underneath, nothing else.
-- Clicking a sub-category (e.g. Casual) opens that sub-category's product listing.
+- NOT a full-screen slide design. It is a 3D coverflow carousel of rounded portrait cards (3:4 ratio, image only, name underneath).
+- The centred card faces straight and is the largest; side cards are progressively smaller, tilted in 3D (rotateY with perspective), pushed back and faded.
+- **Desktop (1024px+):** every item is rendered and the cards stack continuously outwards from the centre at a constant step (`src/components/ui/CoverflowCarousel.tsx`, the `DESKTOP` constant), so there is no gap between the centre and the arrows. 5 cards read clearly (1 large centre, 2 tilted on each side); the cards beyond the first two keep the ±1 scale/tilt and fade out smoothly over the last ~11% of the stage near the arrows, so no card is ever hard-clipped. Position is computed in card widths (a card is a fixed fraction of the stage), not from an unsized element.
+- **Tablet (768–1023px):** 3 cards visible: 1 centre, 1 on each side. Smaller cards and lighter tilt.
+- **Mobile (below 768px):** 1 large centre card with a ~10–15% peek of the neighbours on both sides. Neighbours scaled to ~0.85 with very light or no tilt. NO blur filters.
+- Left/right arrow buttons on all screen sizes, plus swipe/drag on touch and Left/Right keys on desktop. One swipe = one card. Navigation clamped at the ends.
+- Click the CENTRE card → goes to that sub-category's product listing. Click a SIDE card → moves to centre (no navigation).
+- Adding/removing items in admin updates the carousel automatically. Handle 1–4 items cleanly (centred, no empty gaps). With only 1 item, hide the arrows.
 - Bag's and Jewellery skip this page entirely.
 
 ### 4.3 Product Listing Page
@@ -129,13 +132,13 @@ Top to bottom:
 - `/policies/[slug]` renders those four pages: a breadcrumb (HOME > PRIVACY POLICY etc.), the page title, then the body as **plain text** (never `dangerouslySetInnerHTML`) — split on blank lines into paragraphs with single line breaks preserved — in the shared content container with a normal (non-full-screen) footer. Any other slug is a `notFound()`; a page with no body shows "This page has not been updated yet." The routes are static/ISR with `generateStaticParams` for the four slugs, and the body is read through `getStorePolicy` (`src/lib/policy-data.ts`, `unstable_cache` + the `store-policies` tag).
 - The FOLLOW column is a **vertical list of icon + platform name rows** (not a horizontal icon row): each row is one link — the round icon (~36px, same thin border and hover as before) followed by INSTAGRAM / FACEBOOK / TIKTOK / WHATSAPP in the same uppercase font, size, tracking and colour as the SHOP and CONTACT links, with the same `space-y-3` row rhythm. Only platforms with a link set appear; a platform with no link is not rendered. The `/contact` page's Social row stays the horizontal icon-only row.
 - All non-homepage pages use a normal (not full-screen) footer with the same content as the homepage footer. On the homepage the footer stays the final full-screen slide. In the `(site)` layout, `main` gets a minimum height of one viewport minus the header (`--site-content-min-h` / `--site-content-min-h-md`, computed from the announcement-bar and navbar heights in `src/lib/header-tone.ts`), so header + content always fill the first screen and the normal footer starts **below** the fold on short pages — it never flashes into the first viewport while a page loads. `svh` keeps it right when the mobile address bar changes the visible height.
-- "Team" opens a new page showing team members as circular images + name underneath in a left-right carousel with navigation arrows (same circular style as sub-category cards). It must not dump all details at once.
-- Clicking a member's circle opens their full detail (image, name, description/role).
+- "Team" opens a new page showing team members as rounded portrait cards (3:4 ratio) in a 3D coverflow carousel with navigation arrows. It must not dump all details at once.
+- Clicking a member's portrait opens their full detail (image, name, description/role).
 - **Phase 8 implementation notes:**
   - `SiteFooterContent` is the single footer definition; `SiteFooter` (homepage slide) and `PageFooter` (every other page) are thin shells around it, so the two footers cannot drift apart.
   - Footer contact details and social links come from the one constant in `src/lib/site-config.ts` — **not** from the `settings` table, which is admin-only readable. Edit that file to change them.
   - `/contact` shows those same details and a message form (Name, Phone, Email address*, Comment*) that writes to `contact_messages` (migration 013) through the `sendContactMessage` server action in `src/lib/contact.ts`; the shared field rules live in `src/lib/contact-types.ts`. The form has a honeypot field and a basic in-memory rate limit (5 per hour per IP), shows the exact line "Thank you, your message has been sent." on success and resets. Nothing is emailed. `/team` shows the carousel. `Contact` must never be added to the hamburger menu.
-  - The circular-card carousel is `src/components/ui/CircleCarousel.tsx`, shared by the sub-category page and `/team`. A new carousel consumer supplies the item list and a `renderAction`; do not copy the scroll mechanics.
+  - The 3D coverflow carousel is `src/components/ui/CoverflowCarousel.tsx`, shared by the sub-category page and `/team`. A consumer supplies the item list and an `onActivate` callback (or `getHref` for a real link) for the centred card; tapping a side card just brings it to the centre.
 
 ### 4.8 Currency switcher (PKR / USD / EUR / GBP / AED / CAD)
 

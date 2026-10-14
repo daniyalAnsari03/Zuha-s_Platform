@@ -177,21 +177,6 @@ html {
 }
 
 /*
- * Circle-card image zoom (sub-category row + Team carousel), hover-capable
- * devices only: a tap must never leave the circle stuck zoomed. The class is
- * only applied when motion is allowed (see `CircleCard`).
- */
-@media (hover: hover) and (pointer: fine) {
-  .circle-card-zoom {
-    transition: transform 0.5s var(--motion-ease);
-  }
-
-  .group:hover .circle-card-zoom {
-    transform: scale(1.04);
-  }
-}
-
-/*
  * Reduced-motion fallback for the plain CSS transitions and animations the
  * Framer Motion `MotionConfig` cannot reach: every transition collapses to an
  * instant state change (i.e. a plain fade where opacity is involved).
