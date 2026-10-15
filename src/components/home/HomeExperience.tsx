@@ -6,6 +6,7 @@ import CategorySlider from "@/components/home/CategorySlider";
 import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
+import WhatsAppButton from "@/components/layout/WhatsAppButton";
 import type { HomeAnnouncement, HomeCategorySlide } from "@/lib/home-data";
 import {
   HEADER_TONE_FALLBACK,
@@ -105,6 +106,7 @@ export default function HomeExperience({
 
       {/* Stays put over every slide, including the full-screen footer slide. */}
       <CurrencySwitcher />
+      <WhatsAppButton details={details} />
     </div>
   );
 }

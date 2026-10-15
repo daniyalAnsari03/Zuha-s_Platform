@@ -4,6 +4,7 @@ import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import PageFooter from "@/components/layout/PageFooter";
+import WhatsAppButton from "@/components/layout/WhatsAppButton";
 import { QuickViewProvider } from "@/components/products/ProductQuickViewProvider";
 import {
   ANNOUNCEMENT_BAR_HEIGHT_PX,
@@ -88,6 +89,7 @@ export default async function SiteLayout({
 
       {/* Fixed to the viewport, so it floats over every storefront page. */}
       <CurrencySwitcher />
+      <WhatsAppButton details={details} />
     </QuickViewProvider>
   );
 }
