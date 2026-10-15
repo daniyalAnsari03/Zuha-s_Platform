@@ -14,6 +14,7 @@ export function mapProductDetailToData(product: ProductDetail): ProductDetailDat
     sizes: product.sizes,
     colors: product.colors,
     images: product.images.length > 0 ? product.images : [],
+    imageColors: product.imageColors,
     createdAt: product.createdAt,
     category: product.category
       ? {

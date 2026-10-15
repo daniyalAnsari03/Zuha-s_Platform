@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import ProductDetailContent from '@/components/products/ProductDetailContent'
+import { boldTextToPlainText } from '@/lib/bold-text'
 import { CONTENT_CONTAINER } from '@/lib/content-container'
 import { getAllProductSlugs } from '@/lib/product-data'
 import { getProductDetailData } from '@/lib/product-detail'
@@ -51,7 +52,9 @@ export async function generateMetadata({
 
   return {
     title: `${product.name} | ZUHA'S`,
-    description: product.description ?? undefined,
+    description: product.description
+      ? boldTextToPlainText(product.description)
+      : undefined,
   }
 }
 

@@ -58,6 +58,12 @@ export type Product = {
   stock_quantity: number;
   low_stock_threshold: number;
   images: string[];
+  /**
+   * Optional colour tag per gallery image, index-aligned with `images`
+   * (migration 017); '' means "no tag". Optional in the type so the admin save
+   * and the storefront still type-check before that migration is applied.
+   */
+  image_colors?: string[] | null;
   is_active: boolean;
   is_featured: boolean;
   created_at: string;

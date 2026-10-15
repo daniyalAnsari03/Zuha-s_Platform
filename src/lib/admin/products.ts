@@ -27,6 +27,7 @@ import {
   actionFail,
   actionOk,
   MAX_GALLERY_IMAGES,
+  MAX_IMAGE_COLOR_LENGTH,
   MAX_PRODUCT_DESCRIPTION_LENGTH,
   readCount,
   readDescription,
@@ -54,16 +55,32 @@ export type ProductInput = {
   stockQuantity: number | string;
   lowStockThreshold: number | string;
   images: string[];
+  /**
+   * Optional colour tag per image, keyed by the image's URL — keyed rather
+   * than indexed because the gallery reorders and removes URLs in the browser,
+   * so the tag follows its image for free. See migration 017.
+   */
+  imageColors?: Record<string, string>;
 };
 
+/** One gallery image with its (optional, never null) colour tag. */
+type GalleryEntry = { url: string; color: string };
+
 /**
- * The gallery the browser sent.
+ * The gallery the browser sent, as (url, color) pairs.
  *
  * Empty is allowed — the listing card falls back to a placeholder — but every
  * entry has to be a plain http(s) URL and the count cannot exceed the gallery
  * limit, so a hand-edited payload cannot store something that is not an image.
+ *
+ * The colour tag is resolved **in the same pass as its URL**, so the two stay
+ * index-aligned no matter how the browser sends them; anything missing or not
+ * a string becomes "" (never null), which is what an untagged image reads as.
  */
-function readGallery(value: unknown): { ok: true; value: string[] } | ActionError {
+function readGallery(
+  value: unknown,
+  colors: unknown,
+): { ok: true; value: GalleryEntry[] } | ActionError {
   if (value === undefined || value === null) return { ok: true, value: [] };
   if (!Array.isArray(value)) {
     return actionFail("The images could not be read. Remove and re-add them.");
@@ -73,7 +90,12 @@ function readGallery(value: unknown): { ok: true; value: string[] } | ActionErro
     return actionFail(`A product can have at most ${MAX_GALLERY_IMAGES} images.`);
   }
 
-  const urls: string[] = [];
+  const colorMap: Record<string, unknown> =
+    colors && typeof colors === "object" && !Array.isArray(colors)
+      ? (colors as Record<string, unknown>)
+      : {};
+
+  const entries: GalleryEntry[] = [];
 
   for (const entry of value) {
     if (typeof entry !== "string") {
@@ -82,10 +104,102 @@ function readGallery(value: unknown): { ok: true; value: string[] } | ActionErro
 
     const url = readImageUrl(entry);
     if (!url.ok) return url;
-    if (url.value) urls.push(url.value);
+    if (!url.value) continue;
+
+    const color = readImageColor(colorMap[url.value]);
+    if (!color.ok) return color;
+
+    entries.push({ url: url.value, color: color.value });
   }
 
-  return { ok: true, value: urls };
+  return { ok: true, value: entries };
+}
+
+/**
+ * One image's colour tag: free text, trimmed, empty when the admin left it
+ * blank. The storefront matches it case-insensitively, so only the length cap
+ * is worth refusing here.
+ */
+function readImageColor(value: unknown): { ok: true; value: string } | ActionError {
+  const tag = typeof value === "string" ? value.trim() : "";
+
+  if (tag.length > MAX_IMAGE_COLOR_LENGTH) {
+    return actionFail(
+      `An image colour must be ${MAX_IMAGE_COLOR_LENGTH} characters or fewer.`,
+    );
+  }
+
+  return { ok: true, value: tag };
+}
+
+/** The columns a product save writes. `image_colors` comes from migration 017. */
+type ProductWriteRow = {
+  name: string;
+  slug: string;
+  description: string | null;
+  category_id: string;
+  sub_category_id: string | null;
+  price: number;
+  discount_price: number | null;
+  sizes: string | null;
+  color: string | null;
+  stock_quantity: number;
+  low_stock_threshold: number;
+  images: string[];
+  /** Optional in the type so a save still compiles before 017 is applied. */
+  image_colors?: string[];
+};
+
+/**
+ * Creates or updates the product row, with one concession to a database that
+ * has not been migrated yet.
+ *
+ * `image_colors` (migration 017) is the only column nothing else in the
+ * dashboard depends on. When it is missing, PostgREST refuses the *whole*
+ * payload, so the identical write is retried once without the colour tags —
+ * an `undefined` key never reaches the JSON body — and the warning names the
+ * migration to run. The admin's edit is saved rather than lost.
+ */
+async function writeProductRow(
+  db: ReturnType<typeof getAdminDb>,
+  row: ProductWriteRow,
+  id: string | null,
+) {
+  const attempt = (values: ProductWriteRow) =>
+    id
+      ? db.from("products").update(values).eq("id", id)
+      : db.from("products").insert({ ...values, is_active: true, is_featured: false });
+
+  const response = await attempt(row);
+
+  if (!response.error || !isMissingImageColorsColumn(response.error)) {
+    return response;
+  }
+
+  console.warn(
+    "[admin] products.image_colors is missing, so the colour tags were not saved. " +
+      "Run supabase/migrations/017_product_image_color.sql.",
+  );
+
+  return attempt({ ...row, image_colors: undefined });
+}
+
+/**
+ * PostgREST names a column it cannot resolve as `PGRST204` (not in its schema
+ * cache) or lets Postgres answer `42703` (SQLSTATE undefined_column); both
+ * messages name the column, so an unrelated failure is never mistaken for this.
+ */
+function isMissingImageColorsColumn(error: {
+  code?: string | null;
+  message?: string | null;
+}) {
+  if (error.code !== "42703" && error.code !== "PGRST204") return false;
+
+  const message = error.message ?? "";
+  return (
+    /image_colors/i.test(message) &&
+    /(column|does not exist|not found)/i.test(message)
+  );
 }
 
 /** Saves a product: creates it, or updates the one with this id. */
@@ -133,8 +247,8 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
   );
   if (!lowStockThreshold.ok) return lowStockThreshold;
 
-  const images = readGallery(input?.images);
-  if (!images.ok) return images;
+  const gallery = readGallery(input?.images, input?.imageColors);
+  if (!gallery.ok) return gallery;
 
   const db = getAdminDb();
 
@@ -223,7 +337,10 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
     color: color.value,
     stock_quantity: stockQuantity.value,
     low_stock_threshold: lowStockThreshold.value,
-    images: images.value,
+    images: gallery.value.map((entry) => entry.url),
+    // Same length as `images`, "" for an untagged image, never null — the
+    // two arrays are written together so a colour can never shift sideways.
+    image_colors: gallery.value.map((entry) => entry.color),
   };
 
   if (id) {
@@ -233,7 +350,7 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
 
     const existing = existingResult.data;
 
-    const { error } = await db.from("products").update(row).eq("id", id);
+    const { error } = await writeProductRow(db, row, id);
 
     if (error) {
       console.error("[admin] could not update the product.", error.message);
@@ -242,7 +359,7 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
 
     // Only files that are no longer referenced by the saved row are removed, so
     // an image kept in the gallery is never deleted.
-    const stillUsed = new Set(images.value);
+    const stillUsed = new Set(gallery.value.map((entry) => entry.url));
     await deleteStoredImages(
       db,
       (existing.images ?? []).filter((url) => !stillUsed.has(url)),
@@ -257,9 +374,7 @@ export async function saveProduct(input: ProductInput): Promise<ActionResult> {
 
   // `is_featured` is not exposed anywhere yet and defaults to false in the
   // schema; the generated types require it on insert, so it is stated here.
-  const { error } = await db
-    .from("products")
-    .insert({ ...row, is_active: true, is_featured: false });
+  const { error } = await writeProductRow(db, row, null);
 
   if (error) {
     console.error("[admin] could not create the product.", error.message);

@@ -8,11 +8,11 @@ import { useMemo, useState, useTransition } from "react";
 
 import AdminDeleteButton from "@/components/admin/AdminDeleteButton";
 import AdminDialog, { AdminDialogCancel } from "@/components/admin/AdminDialog";
+import BoldTextarea from "@/components/admin/BoldTextarea";
 import {
   ADMIN_INPUT_CLASS,
   ADMIN_PRIMARY_BUTTON_CLASS,
   ADMIN_SECONDARY_BUTTON_CLASS,
-  ADMIN_TEXTAREA_CLASS,
   AdminFeedback,
   AdminField,
   AdminUploadBusyNotice,
@@ -60,6 +60,11 @@ type ProductDraft = {
   stockQuantity: string;
   lowStockThreshold: string;
   images: string[];
+  /**
+   * Optional colour tag per image, keyed by the image's URL (migration 017).
+   * Keyed rather than indexed because the gallery reorders/removes by URL.
+   */
+  imageColors: Record<string, string>;
 };
 
 export default function ProductsManager({
@@ -134,6 +139,7 @@ export default function ProductsManager({
       stockQuantity: "0",
       lowStockThreshold: "5",
       images: [],
+      imageColors: {},
     });
 
   return (
@@ -209,6 +215,14 @@ export default function ProductsManager({
                       stockQuantity: String(product.stockQuantity),
                       lowStockThreshold: String(product.lowStockThreshold),
                       images: [...product.images],
+                      // The row's images and their tags arrive aligned; keying
+                      // them by URL lets the gallery reorder/remove freely.
+                      imageColors: Object.fromEntries(
+                        product.images.map((url, index) => [
+                          url,
+                          product.imageColors[index] ?? "",
+                        ]),
+                      ),
                     })
                   }
                   className={ADMIN_SECONDARY_BUTTON_CLASS}
@@ -333,6 +347,7 @@ function ProductForm({
         stockQuantity: fields.stockQuantity,
         lowStockThreshold: fields.lowStockThreshold,
         images: fields.images,
+        imageColors: fields.imageColors,
       });
 
       if (!result.ok) {
@@ -380,14 +395,15 @@ function ProductForm({
         <AdminField
           label="Description"
           htmlFor="product-description"
-          hint={`Shown on the product page and in quick view. ${MAX_PRODUCT_DESCRIPTION_LENGTH} characters maximum.`}
+          hint={`Shown on the product page and in quick view. Enter starts a new line, Enter twice a blank gap; **text** makes bold. ${MAX_PRODUCT_DESCRIPTION_LENGTH} characters maximum.`}
         >
-          <textarea
+          <BoldTextarea
             id="product-description"
             value={fields.description}
-            onChange={(event) => set("description", event.target.value)}
+            onChange={(description) => set("description", description)}
             maxLength={MAX_PRODUCT_DESCRIPTION_LENGTH}
-            className={ADMIN_TEXTAREA_CLASS}
+            rows={6}
+            placeholder="Describe the product exactly as customers should read it."
           />
         </AdminField>
 
@@ -546,6 +562,13 @@ function ProductForm({
           folder="products"
           hint="The first image is the main image on the listing page."
           onBusyChange={reportUploadBusy}
+          imageColors={fields.imageColors}
+          onImageColorChange={(url, color) =>
+            setFields((current) => ({
+              ...current,
+              imageColors: { ...current.imageColors, [url]: color },
+            }))
+          }
         />
 
         <AdminFeedback status={status} />

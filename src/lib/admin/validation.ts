@@ -95,6 +95,9 @@ export const MAX_TEAM_BIO_LENGTH = 1000;
 /** One policy page's body, typed into the Settings textarea. */
 export const MAX_POLICY_LENGTH = 40000;
 
+/** One gallery image's optional colour tag (migration 017), e.g. "Black". */
+export const MAX_IMAGE_COLOR_LENGTH = 40;
+
 /**
  * One trimmed line of text, at most `maxLength` characters.
  *
@@ -200,12 +203,20 @@ export function readName(
   return { ok: true, value: name };
 }
 
-/** An optional description; an empty value is stored as null. */
+/**
+ * An optional description; an empty value is stored as null.
+ *
+ * The admin types the text exactly as customers should read it: line breaks
+ * and blank lines are preserved. Only the whole string's ends are trimmed and
+ * Windows line endings are normalised — nothing in the middle is collapsed.
+ * Bold is the `**text**` convention the storefront renders as `<strong>`.
+ */
 export function readDescription(
   value: unknown,
   maxLength: number,
 ): { ok: true; value: string | null } | ActionError {
-  const description = clean(value);
+  const description =
+    typeof value === "string" ? value.replace(/\r\n?/g, "\n").trim() : "";
 
   if (!description) return { ok: true, value: null };
   if (description.length > maxLength) {

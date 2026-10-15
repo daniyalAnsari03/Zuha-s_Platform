@@ -25,7 +25,7 @@ import {
   STORE_POLICY_TITLES,
   type StorePolicySlug,
 } from "@/lib/policy-types";
-import { isLowStock } from "@/lib/products";
+import { isLowStock, pairImagesWithColors } from "@/lib/products";
 
 export type AdminSubCategory = {
   id: string;
@@ -79,6 +79,12 @@ export type AdminProduct = {
   stockQuantity: number;
   lowStockThreshold: number;
   images: string[];
+  /**
+   * Colour tag per image, index-aligned with `images` ("" = no tag), from
+   * migration 017. Always the same length as `images`, so the edit form can
+   * key its per-thumbnail inputs by URL without any shifting.
+   */
+  imageColors: string[];
   isActive: boolean;
 };
 
@@ -192,7 +198,7 @@ export async function listAdminProducts(
     db
       .from("products")
       .select(
-        "id, name, slug, description, category_id, sub_category_id, price, discount_price, sizes, color, stock_quantity, low_stock_threshold, images, is_active",
+        "id, name, slug, description, category_id, sub_category_id, price, discount_price, sizes, color, stock_quantity, low_stock_threshold, images, image_colors, is_active",
       )
       .order("created_at", { ascending: false })
       .range((page - 1) * perPage, page * perPage - 1),
@@ -209,22 +215,30 @@ export async function listAdminProducts(
   const totalPages = Math.max(1, Math.ceil((count ?? 0) / perPage));
 
   return {
-    products: (data ?? []).map((product) => ({
-      id: product.id,
-      name: product.name,
-      slug: product.slug,
-      description: product.description,
-      categoryId: product.category_id,
-      subCategoryId: product.sub_category_id,
-      price: Number(product.price),
-      discountPrice: product.discount_price === null ? null : Number(product.discount_price),
-      sizes: product.sizes,
-      color: product.color,
-      stockQuantity: product.stock_quantity,
-      lowStockThreshold: product.low_stock_threshold,
-      images: product.images ?? [],
-      isActive: product.is_active,
-    })),
+    products: (data ?? []).map((product) => {
+      // URLs and colour tags are paired in one pass, so the tags that come
+      // back from `image_colors` (migration 017) can never land on the wrong
+      // thumbnail — and a missing column/short array simply reads as "".
+      const gallery = pairImagesWithColors(product.images, product.image_colors);
+
+      return {
+        id: product.id,
+        name: product.name,
+        slug: product.slug,
+        description: product.description,
+        categoryId: product.category_id,
+        subCategoryId: product.sub_category_id,
+        price: Number(product.price),
+        discountPrice: product.discount_price === null ? null : Number(product.discount_price),
+        sizes: product.sizes,
+        color: product.color,
+        stockQuantity: product.stock_quantity,
+        lowStockThreshold: product.low_stock_threshold,
+        images: gallery.map((entry) => entry.url),
+        imageColors: gallery.map((entry) => entry.color),
+        isActive: product.is_active,
+      };
+    }),
     total: count ?? 0,
     totalPages,
     currentPage: page,

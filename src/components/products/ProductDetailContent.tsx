@@ -7,11 +7,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/components/cart/CartProvider";
 import Price from "@/components/currency/Price";
 import { CloseIcon, ExpandIcon, HeartIcon } from "@/components/icons";
+import FormattedDescription from "@/components/products/FormattedDescription";
 import FadeInImage from "@/components/ui/FadeInImage";
 import PopOnChange from "@/components/ui/PopOnChange";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
 import { IMAGE_QUALITY } from "@/lib/images";
-import { discountPercent, effectivePrice } from "@/lib/products";
+import {
+  discountPercent,
+  effectivePrice,
+  pairImagesWithColors,
+} from "@/lib/products";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,6 +60,15 @@ const DETAILS_MAX_HEIGHT_MODAL = "lg:max-h-[calc(100dvh_-_7rem)]";
 /** How long the "Added to cart" confirmation stays up. */
 const ADDED_FEEDBACK_MS = 2600;
 
+/**
+ * How a colour option and an image's colour tag are compared: trimmed,
+ * case-insensitive, with runs of spaces collapsed, so " Ivory " and "ivory"
+ * are the same colour.
+ */
+function normalizeColorTag(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
 export type ProductDetailData = {
   id: string;
   name: string;
@@ -65,6 +79,12 @@ export type ProductDetailData = {
   sizes: string[];
   colors: string[];
   images: string[];
+  /**
+   * Optional per-image colour tag (migration 017), index-aligned with
+   * `images`; "" means "no tag". Below lg, tapping a colour jumps the slider
+   * to the first image whose tag matches.
+   */
+  imageColors: string[];
   createdAt: string;
   category: {
     slug: string;
@@ -142,10 +162,25 @@ export default function ProductDetailContent({
     sliderRef.current?.scrollTo({ left: 0 });
   }, [product.id]);
 
-  const images = useMemo(
-    () => Array.from(new Set(product.images.filter(Boolean))),
-    [product.images],
-  );
+  /**
+   * The gallery as (image, colour tag) pairs — deduplicated in the original
+   * order, each URL keeping its own tag so the two can never drift apart.
+   * `images` below is the plain URL list the dashes, the viewer and the cart
+   * already use.
+   */
+  const gallery = useMemo(() => {
+    const seen = new Set<string>();
+
+    return pairImagesWithColors(product.images, product.imageColors).filter(
+      (item) => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+      },
+    );
+  }, [product.images, product.imageColors]);
+
+  const images = gallery.map((item) => item.url);
 
   const percent = discountPercent(product);
   const isDiscounted = percent !== null;
@@ -228,6 +263,29 @@ export default function ProductDetailContent({
       behavior: reduceMotion ? "auto" : "smooth",
     });
     setSlideIndex(clamped);
+  };
+
+  /**
+   * Picking a colour also moves the gallery — but **only** below 1024px, where
+   * the gallery is the swipe slider. It scrolls to the first image tagged with
+   * that colour, using the same smooth scroll (and reduced-motion check) as the
+   * dashes and the key handler. No image carries the colour: the slider stays
+   * where it is and the colour is simply selected. From 1024px up the
+   * two-column grid is on screen and the slider is `display: none`, so the
+   * desktop layout never moves.
+   */
+  const selectColor = (color: string) => {
+    setSelectedColor(color);
+    setColorError(false);
+
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+
+    const wanted = normalizeColorTag(color);
+    const target = gallery.findIndex(
+      (item) => normalizeColorTag(item.color) === wanted,
+    );
+
+    if (target >= 0 && target !== slideIndex) scrollToSlide(target);
   };
 
   /** One swipe, one image: the index follows wherever the snap landed. */
@@ -496,9 +554,7 @@ export default function ProductDetailContent({
         </div>
 
         {product.description ? (
-          <p className="max-w-prose text-sm leading-relaxed text-black/80 sm:text-base">
-            {product.description}
-          </p>
+          <FormattedDescription description={product.description} />
         ) : null}
 
         {needsSize ? (
@@ -547,10 +603,7 @@ export default function ProductDetailContent({
                   key={color}
                   type="button"
                   aria-pressed={selectedColor === color}
-                  onClick={() => {
-                    setSelectedColor(color);
-                    setColorError(false);
-                  }}
+                  onClick={() => selectColor(color)}
                   className={cn(
                     "min-h-11 px-3 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum",
                     selectedColor === color

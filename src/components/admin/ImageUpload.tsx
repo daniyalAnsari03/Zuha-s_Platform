@@ -6,6 +6,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 import {
+  ADMIN_INPUT_CLASS,
   ADMIN_LABEL_CLASS,
   ADMIN_QUIET_BUTTON_CLASS,
 } from "@/components/admin/admin-fields";
@@ -19,6 +20,7 @@ import {
 import {
   describeImageProblem,
   MAX_GALLERY_IMAGES,
+  MAX_IMAGE_COLOR_LENGTH,
   type UploadFolder,
 } from "@/lib/admin/validation";
 import { getSupabasePublicEnv } from "@/lib/supabase/env";
@@ -114,6 +116,17 @@ export type ImageGalleryUploadProps = {
   className?: string;
   /** Same contract as `ImageUpload`. */
   onBusyChange?: (busy: boolean) => void;
+  /**
+   * Optional colour tag per stored URL, **keyed by URL** (migration 017).
+   * Keyed rather than indexed so a tag follows its image through the gallery's
+   * own reorder / remove operations without any extra bookkeeping here.
+   */
+  imageColors?: Record<string, string>;
+  /**
+   * Reports a typed tag for one image. When it is not supplied (any screen
+   * that does not use colour tags) no colour input is rendered at all.
+   */
+  onImageColorChange?: (url: string, color: string) => void;
 };
 
 /** A file that has been chosen but is not a stored URL yet. */
@@ -147,6 +160,8 @@ export function ImageGalleryUpload({
   hint,
   className,
   onBusyChange,
+  imageColors,
+  onImageColorChange,
 }: ImageGalleryUploadProps) {
   const [pending, setPending] = useState<PendingImage[]>([]);
   const [batchBusy, setBatchBusy] = useState(false);
@@ -478,6 +493,14 @@ export function ImageGalleryUpload({
                   ) : null}
                 </div>
 
+                {onImageColorChange ? (
+                  <ImageColorField
+                    url={card.url}
+                    color={imageColors?.[card.url]}
+                    onChange={onImageColorChange}
+                  />
+                ) : null}
+
                 <div className="flex items-center justify-between gap-1">
                   <div className="flex">
                     <button
@@ -556,6 +579,14 @@ export function ImageGalleryUpload({
                   ) : null}
                 </div>
 
+                {onImageColorChange && card.item.uploadedUrl ? (
+                  <ImageColorField
+                    url={card.item.uploadedUrl}
+                    color={imageColors?.[card.item.uploadedUrl]}
+                    onChange={onImageColorChange}
+                  />
+                ) : null}
+
                 {card.item.status === "failed" && card.item.error ? (
                   <p role="alert" className="text-xs text-plum">
                     {card.item.error}
@@ -626,6 +657,43 @@ export function ImageGalleryUpload({
       ) : null}
 
       {hint ? <p className="text-xs text-black/45">{hint}</p> : null}
+    </div>
+  );
+}
+
+/**
+ * The optional colour tag under one gallery thumbnail (migration 017).
+ *
+ * Free text on purpose — the admin types whatever the product's own colour
+ * options say ("Black", "Ivory") and the storefront matches it
+ * case-insensitively. Empty is allowed and simply means "no tag", so a gallery
+ * saved before this field existed keeps working untouched.
+ */
+function ImageColorField({
+  url,
+  color,
+  onChange,
+}: {
+  url: string;
+  color: string | undefined;
+  onChange: (url: string, color: string) => void;
+}) {
+  const inputId = useId();
+
+  return (
+    <div className="flex flex-col gap-1">
+      <label htmlFor={inputId} className={ADMIN_LABEL_CLASS}>
+        Color
+      </label>
+      <input
+        id={inputId}
+        type="text"
+        value={color ?? ""}
+        onChange={(event) => onChange(url, event.target.value)}
+        maxLength={MAX_IMAGE_COLOR_LENGTH}
+        placeholder="e.g. Black"
+        className={ADMIN_INPUT_CLASS}
+      />
     </div>
   );
 }

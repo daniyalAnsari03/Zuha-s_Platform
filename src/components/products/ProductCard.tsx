@@ -83,6 +83,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
       sizes: product.sizes,
       colors: product.colors,
       images: product.imageUrl ? [product.imageUrl] : [],
+      imageColors: [],
       createdAt: product.createdAt,
       category: null,
       subCategory: null,

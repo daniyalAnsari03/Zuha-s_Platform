@@ -78,6 +78,31 @@ export function parseOptionList(value: string | null | undefined): string[] {
 }
 
 /**
+ * Pairs a gallery's URLs with their per-image colour tags (migration 017).
+ *
+ * `products.image_colors` is index-aligned with `products.images`, but a NULL
+ * column, a NULL element, or one that is shorter than the gallery has to keep
+ * working: every missing entry becomes "" ("no tag"), and empty URLs are
+ * dropped **with their tag in the same pass**, so a colour can never shift
+ * from one image onto another.
+ */
+export function pairImagesWithColors(
+  images: readonly (string | null)[] | null | undefined,
+  colors: readonly (string | null)[] | null | undefined,
+): { url: string; color: string }[] {
+  const pairs: { url: string; color: string }[] = [];
+
+  (images ?? []).forEach((url, index) => {
+    if (!url) return;
+
+    const tag = colors?.[index];
+    pairs.push({ url, color: typeof tag === "string" ? tag : "" });
+  });
+
+  return pairs;
+}
+
+/**
  * The price a product is actually sold at: the discount price when the admin
  * set one, otherwise the regular price. Filters and sorting both use this, so
  * a discounted product sorts by what the customer pays.
