@@ -8,10 +8,10 @@ type PageFooterProps = {
 
 /**
  * The footer every page except the homepage ends with: the same content as the
- * homepage footer slide (shop links, contact, socials, newsletter with the
- * Contact Us / Team buttons, then the black wordmark and the copyright) at a
- * natural height, in normal flow. Rendered by the shared page shell so short
- * pages still push it to the bottom of the viewport.
+ * homepage footer slide (the Shop / Follow / Policies columns, newsletter, the
+ * payment logos row and the copyright) at a natural height, in normal flow. Rendered
+ * by the shared page shell so short pages still push it to the bottom of the
+ * viewport.
  *
  * The vertical padding lives on this `<footer>` rather than in the shared
  * content, so the homepage slide can size itself to the viewport instead.

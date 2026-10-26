@@ -1,29 +1,8 @@
-TASK: Fix a regression in the admin image upload. Investigate first, then fix. Do NOT add features and do NOT change anything else.
+Migration 017_product_image_color.sql approved as proposed (products.image_colors text[] default null, no new table, no grants needed). Create the file now and continue the full task, with these 4 conditions:
 
-ERROR (localhost, dev mode), happens when uploading an image for any category (and possibly other forms); name and price save fine, only the image fails:
-Runtime TypeError: Cannot destructure property 'index' of '.for' as it is undefined.
-at uploadItems (src/components/admin/ImageUpload.tsx:321)  -> `for (const { index, outcome } of results) {`
-at async uploadFiles (src/components/admin/ImageUpload.tsx:244)
+1. Keep images[] and image_colors[] aligned: wherever images are deduped/filtered/reordered (readGallery in admin save, fromDatabaseDetailRow on the storefront, admin edit load), process them as (url, color) pairs or filter both in one pass so a color never shifts to another image.
+2. Treat NULL image_colors, or one shorter/longer than images, as "" for the missing entries. Never store a NULL element inside the array, use "".
+3. Admin save must not crash if the column does not exist yet, and the storefront fetch keeps its graceful fallback. Reminder in your final report: migration 017 must be run in the client's Supabase BEFORE any push.
+4. For the slide-to-color jump use the same scroll behavior the slider already uses for dots/swipe (native smooth scroll + reduced-motion check). Do not add a new custom animation system.
 
-LIKELY CAUSE (verify it yourself): `results` contains an undefined entry. For example mapPool (the helper that runs up to 3 uploads in parallel) writes results by index, and when one upload callback throws or rejects (a network failure on the signed-URL PUT, a rejected server action, a non-2xx response, a file validation problem) that slot is never filled, so a hole is left in the array and the destructuring crashes. This also hides the REAL upload error. Also check that requestImageUploads (the batch signed-URL server action) can return fewer tickets or an error object that the code then indexes incorrectly (undefined ticket for a file).
-
-STEPS:
-1. Read ImageUpload.tsx (mapPool, uploadItems, uploadFiles, uploadWithSignedUrl, the single-slot ImageSlot flow, and the gallery flow) and src/lib/admin/uploads.ts (requestImageUpload and requestImageUploads). Report the exact root cause.
-2. Make mapPool (or whatever runs the parallel uploads) fully robust: every item ALWAYS produces a result entry, in the original order, even when the worker throws or rejects. Wrap each worker in try/catch and convert an exception into {index, outcome: {ok: false, error: <readable message>}}. Never leave a hole, never let one failing file reject the whole batch or break the others, never use shared mutable counters that can get stuck. Do not use useState(function).
-3. Make uploadItems defensive: if results has a missing entry, treat it as a failure for that item with a clear message instead of crashing. Also guard against requestImageUploads returning an error, a different count of tickets, or a missing ticket for a file: show a clear error message on the affected image(s).
-4. SHOW THE REAL ERROR to the admin: failed uploads must display the actual reason (for example "Upload failed: 403 ..." or "Network error while uploading to storage" or the server action's message) under the image/card, with the existing Remove/Retry behavior. Also console.error the full error in the browser console (but never any secret values).
-5. After the fix, a failed image must not break saving the rest of the form; a successful image must still go through: choose file -> instant local preview -> signed URL -> PUT -> public URL into the form -> Save works. Single slots (category Desktop Image and Mobile Image (optional), sub-category, team member) and the product gallery must all keep working. Uploads stay byte-for-byte the original file (no resize, no compression, no re-encoding). Rules unchanged: jpeg/png/webp, max 5 MB, public store-images bucket, writes only via server, requireAdmin() first.
-6. Check for the actual underlying reason an upload could fail right now and report what you find: the signed URL creation (bucket name, path), the PUT headers (content-type, x-upsert, cache-control), and whether the storage bucket policy/grants could reject the PUT. Do not change SQL; only report.
-
-RULES:
-- No next/dynamic with ssr: false in server components. No useState(function) patterns. No useNavigation.
-- Do NOT start, stop or restart any dev server, do NOT touch .next, do NOT run `npm run build`. Only typecheck (also `npx tsc --noEmit --incremental false`) and lint (errors only).
-- Do NOT run SQL, create migrations, push to GitHub, deploy, or commit.
-- Do NOT change storefront files or any other admin behavior.
-
-REPORT BACK (plain text):
-- root cause with file names and the exact code
-- files changed with one line why each
-- how failed uploads now look to the admin (exact message format)
-- what you found in step 6 about why an upload could fail
-- typecheck and lint results
+Everything else in the earlier task stays: mobile/tablet only (below 1024px), desktop untouched, no image hidden, policies and docs/fix.txt untouched, no SQL run, no push/deploy. Finish with typecheck + lint and list changed files.

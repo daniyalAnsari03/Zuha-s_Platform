@@ -1,25 +1,29 @@
-TASK: Commit all current changes and push them ONCE to the existing GitHub repo. The user has explicitly confirmed this push (remote origin = https://github.com/daniyalAnsari03/Zuha-s_Platform.git, branch main). Do not touch anything else.
+TASK: Footer layout fixes (follow-up to the previous footer redesign). Footer only. Do NOT push, deploy or run SQL. No DB changes.
 
-STEPS:
-1. Run `git status` and `git remote -v` and `git log --oneline -3`. Confirm the branch is main and origin is the URL above. If anything differs, STOP and report.
-2. SECRET SCAN BEFORE COMMITTING (mandatory): search all changed and new files, and docs/f.txt, plus the rest of the project (excluding node_modules and .next), for real secrets: the actual values from .env.local, strings starting with "eyJ" (JWTs) outside package-lock.json, "sb_secret_", a literal SUPABASE_SERVICE_ROLE_KEY value, private keys, OAuth client secrets, hard-coded passwords or tokens. Env variable NAMES in code are fine; literal VALUES are not. If any real secret is found in a file that would be committed, STOP, do not commit or push, and report the file and line with the value masked.
-3. Check .gitignore still ignores: node_modules, .next, .env*, tsconfig.tsbuildinfo, *.log, and any test or scratch output files (for example tsc.txt or similar leftover output files created during work). Add scratch files to .gitignore or leave them unstaged; do not commit junk.
-4. Run `npm run typecheck`, `npm run lint` (errors only) and `npm run build`. The user has stopped all dev servers, so the build is allowed. If any of them FAILS, STOP and report; do not commit or push a broken build.
-5. `git add -A`, then `git status` and list every file that will be committed. Verify there is no .env file, no node_modules, no .next, no tsbuildinfo, no database dump, no secret. Include docs/f.txt only if step 2 found nothing sensitive in it.
-6. Commit with the message: "Footer redesign, contact form + admin messages, admin Dashboard button, mobile navbar, slider and wishlist fixes, ISR speed-up, Google login callback, admin upload fix". If the changes split naturally, one commit is fine.
-7. Push: `git push origin main`. NEVER use --force or --force-with-lease, no rebase, no history rewriting. If the push is rejected or needs authentication you cannot complete, STOP and report the exact error.
-8. After a successful push run `git log --oneline -5` and `git status` and report them.
+I replaced public/payments/meezan.png and public/payments/jazzcash.png with trimmed versions (extra transparent padding removed). Do not modify image files.
 
-RULES:
-- Do NOT deploy anywhere yourself and do NOT create or change any Vercel/GitHub Actions/CI configuration (the site redeploys automatically from GitHub on its own).
-- Do NOT run SQL or touch Supabase.
-- Do NOT modify any source file. Only .gitignore may change, and only if needed.
-- Do NOT start any dev server or `npm start`.
-- Push exactly once, to origin main.
+1) DESKTOP/TABLET LAYOUT (md and up) — the gaps are too big, restructure like the earlier footer:
+- LEFT column: "ZUHA'S" wordmark, tagline (desktop lg+ only), newsletter box, and UNDER the newsletter box the two outlined buttons "Contact Us" and "Team Members" side by side (same style as before: thin border, no fill, same size as the old ones, no text wrapping).
+- Remove the round social-icon row from under the newsletter box.
+- RIGHT side: THREE columns instead of two: SHOP, FOLLOW, POLICIES.
+  - SHOP: Women's, Men's, Kids, Bags, Jewellery (dynamic from categories, as now).
+  - FOLLOW: social links as before: round icon + label (Instagram, Facebook, WhatsApp, TikTok), only socials that have a URL in store_details.
+  - POLICIES: Privacy Policy, Refund Policy, Terms of Service, Shipping Policy.
+- Remove the HELP column completely (Contact Us and Team Members now live as buttons under the newsletter box).
+- Tighten the spacing so the top area is compact: reduce the vertical gap between the wordmark, tagline, newsletter and buttons, reduce the gap between the top area and the payment logos row, and keep the column gaps balanced. Use the same column heading style and ~13px link text as the previous footer.
 
-REPORT BACK (plain text):
-- result of the secret scan (files checked, anything found, values masked)
-- typecheck, lint and build results (include the build route table)
-- number of files committed and confirmation that no .env file or secret is included
-- whether docs/f.txt was included
-- the commit hash and the push result (success or the exact error)
+2) MOBILE (below md):
+- Wordmark at top (no tagline), centered.
+- Accordion sections: SHOP, FOLLOW, POLICIES (closed by default, one open at a time, same motion). FOLLOW lists the social links with icon + label.
+- Then the newsletter box, then the "Contact Us" and "Team Members" buttons, then the payment logos, then the copyright line.
+- Remove the standalone social icon row (socials are now inside FOLLOW).
+
+3) PAYMENT LOGOS: make all 3 look the same size visually. The logos have different aspect ratios, so do NOT use one common height. Use these fixed heights (width auto, object-contain), desktop / mobile:
+- PayPal: 32px / 26px
+- Meezan Bank: 38px / 30px
+- JazzCash: 48px / 38px
+Keep them in one centered row with an equal gap (~32px desktop, ~20px mobile), vertically centered (items-center), no text, no background, no border. After applying, compare visually and adjust these heights slightly if one still looks bigger/smaller than the others, so all 3 have the same visual weight.
+
+KEEP AS IS: bottom copyright line and its link, the floating-button clearance (140px side space on desktop, 72px bottom padding on mobile), homepage footer as the final full-screen slide, min-height on non-home pages, all responsive behavior and motion tokens.
+
+AFTER CODING: run `npx tsc --noEmit`, `npm run lint`, `npm run build` and fix errors. Update the footer section in AGENTS.md to match. No screenshot requests. Report briefly which files changed. Do NOT push or deploy.

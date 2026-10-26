@@ -6,13 +6,17 @@ import { useState, type ReactNode } from "react";
 
 import SocialLinks from "@/components/layout/SocialLinks";
 import { STORE_POLICY_LINKS } from "@/lib/policy-types";
-import { mailtoHref, telHref, type StoreDetails } from "@/lib/site-config";
+import type { SiteSocialLink } from "@/lib/site-config";
 
 /**
- * The mobile (below `md`) footer sections: SHOP / CONTACT / FOLLOW / POLICIES as
- * centred accordion rows. Each row is a real `<button>` with `aria-expanded` and
- * `aria-controls`; only one opens at a time, closed by default, exactly like the
- * hamburger's sub-category accordion.
+ * The mobile (below `md`) footer sections: SHOP / FOLLOW / POLICIES as centred
+ * accordion rows. Each row is a real `<button>` with `aria-expanded` and
+ * `aria-controls`; only one opens at a time, closed by default, exactly like
+ * the hamburger's sub-category accordion. SHOP carries the dynamic category
+ * links; FOLLOW carries the social links (icon + label, only the networks
+ * whose link is set); POLICIES carries the four policy pages. Contact Us and
+ * Team Members are NOT here — they are the outlined buttons under the
+ * newsletter box, shared with the desktop column in `SiteFooterContent`.
  *
  * The open/close is the CSS `grid-template-rows: 0fr -> 1fr` technique (never
  * `height: auto`), with the panel opacity, and a slow, soft ease-out so the
@@ -32,12 +36,13 @@ const PANEL_TRANSITION = `grid-template-rows ${ACCORDION_DURATION} var(--motion-
 
 type MobileFooterAccordionProps = {
   categories: { name: string; slug: string }[];
-  details: StoreDetails;
+  /** The social links with a URL, already filtered by `SiteFooterContent`. */
+  socials: SiteSocialLink[];
 };
 
 export default function MobileFooterAccordion({
   categories,
-  details,
+  socials,
 }: MobileFooterAccordionProps) {
   const reduceMotion = useReducedMotion();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -66,38 +71,14 @@ export default function MobileFooterAccordion({
       ),
     },
     {
-      id: "contact",
-      label: "Contact",
-      content: (
-        <ul className={BODY_CLASS}>
-          <li className="w-full">
-            <a
-              href={mailtoHref(details.contact.email)}
-              className={LINK_CLASS}
-            >
-              {details.contact.email}
-            </a>
-          </li>
-          <li className="w-full">
-            <a href={telHref(details.contact.phone)} className={LINK_CLASS}>
-              {details.contact.phone}
-            </a>
-          </li>
-          <li className="w-full px-2 leading-relaxed">
-            {details.contact.address}
-          </li>
-        </ul>
-      ),
-    },
-    {
       id: "follow",
       label: "Follow",
       content: (
         <SocialLinks
-          links={details.socials}
+          links={socials}
           variant="list"
-          className={BODY_CLASS}
-          linkClassName={LINK_CLASS}
+          className="mx-auto w-fit"
+          linkClassName="min-h-11 px-2"
         />
       ),
     },
@@ -162,10 +143,10 @@ export default function MobileFooterAccordion({
             </h2>
 
             {/*
-             * The shared accordion technique: only the grid row and the panel
-             * opacity change. `inert` keeps a closed section out of the tab
-             * order and unreachable.
-             */}
+              * The shared accordion technique: only the grid row and the panel
+              * opacity change. `inert` keeps a closed section out of the tab
+              * order and unreachable.
+              */}
             <div
               id={panelId}
               aria-hidden={!expanded}

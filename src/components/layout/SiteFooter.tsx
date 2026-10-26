@@ -25,9 +25,9 @@ export default function SiteFooter({ categories, details }: SiteFooterProps) {
       {/*
         Full-screen slide: the shared content keeps its markup and only swaps
         its compact page-footer spacing for viewport-filling spacing. The block
-        above the wordmark is `flex-1`, so it centres itself and the wordmark
-        plus the copyright line land on the bottom edge of the viewport. The
-        paddings are kept tight enough that columns, buttons, wordmark and
+        above the payment row is `flex-1`, so it centres itself and the payment
+        logos plus the copyright line land on the bottom edge of the viewport.
+        The paddings are kept tight enough that the top area, payment row and
         copyright all fit one slide — no internal scrolling — at the common
         desktop heights, with room to spare on tablet.
       */}
