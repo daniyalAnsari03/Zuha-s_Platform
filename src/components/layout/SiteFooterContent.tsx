@@ -100,34 +100,41 @@ const WORDMARK_CLASS = cn(
 );
 
 /**
- * The three payment logos, taken exactly as placed in `public/payments/`:
+ * The four payment logos, taken exactly as placed in `public/payments/`:
  * not links, never recoloured, rendered with `object-contain` so the original
  * aspect and transparency are untouched. The logos have very different aspect
  * ratios, so each carries its OWN height (width auto) — that is what makes all
- * three carry the same visual weight, rather than one shared height that
- * shrinks the wide logos. Desktop / mobile heights are tuned per logo.
+ * four carry the same visual weight, rather than one shared height that
+ * shrinks the wider logos. Desktop / mobile heights are tuned per logo.
  */
 const PAYMENT_LOGOS = [
   {
     src: "/payments/meezan.png",
     alt: "Meezan Bank",
-    width: 244,
-    height: 73,
-    className: "h-[30px] w-auto md:h-[38px]",
+    width: 334,
+    height: 100,
+    className: "h-[30px] w-auto md:h-[36px]",
   },
   {
     src: "/payments/jazzcash.png",
     alt: "JazzCash",
-    width: 100,
-    height: 79,
-    className: "h-[38px] w-auto md:h-[48px]",
+    width: 127,
+    height: 100,
+    className: "h-[36px] w-auto md:h-[44px]",
   },
   {
-    src: "/payments/paypal.png",
-    alt: "PayPal",
-    width: 200,
-    height: 51,
-    className: "h-[26px] w-auto md:h-[32px]",
+    src: "/payments/nayapay.png",
+    alt: "NayaPay",
+    width: 578,
+    height: 100,
+    className: "h-[18px] w-auto md:h-[22px]",
+  },
+  {
+    src: "/payments/easypaisa.png",
+    alt: "Easypaisa",
+    width: 358,
+    height: 100,
+    className: "h-[30px] w-auto md:h-[36px]",
   },
 ] as const;
 
@@ -350,13 +357,13 @@ export default function SiteFooterContent({
       </div>
 
       {/*
-        Bottom block: the three payment logos in one centred row at their own
+        Bottom block: the four payment logos in one centred row at their own
         heights (wrap on tight screens), then the copyright. The insets keep
         the fixed currency switcher and WhatsApp button clear of both (see
         `BOTTOM_BLOCK_CLASS`).
       */}
       <div className={BOTTOM_BLOCK_CLASS}>
-        <div className="flex flex-wrap items-center justify-center gap-5 md:gap-8">
+        <div className="flex flex-wrap items-center justify-center gap-4 md:gap-7">
           {PAYMENT_LOGOS.map((logo) => (
             <Image
               key={logo.alt}
@@ -365,7 +372,7 @@ export default function SiteFooterContent({
               width={logo.width}
               height={logo.height}
               quality={IMAGE_QUALITY}
-              className={logo.className}
+              className={cn("object-contain", logo.className)}
             />
           ))}
         </div>

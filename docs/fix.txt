@@ -1,29 +1,19 @@
-TASK: Footer layout fixes (follow-up to the previous footer redesign). Footer only. Do NOT push, deploy or run SQL. No DB changes.
+TASK: Footer payment logos row update. Footer only. Do NOT push, deploy or run SQL. No DB changes.
 
-I replaced public/payments/meezan.png and public/payments/jazzcash.png with trimmed versions (extra transparent padding removed). Do not modify image files.
+FILES: I placed public/payments/easypaisa.png and public/payments/nayapay.png (transparent background, trimmed). Make sure the names are exactly these (no double .png.png). Do not modify any image files.
 
-1) DESKTOP/TABLET LAYOUT (md and up) — the gaps are too big, restructure like the earlier footer:
-- LEFT column: "ZUHA'S" wordmark, tagline (desktop lg+ only), newsletter box, and UNDER the newsletter box the two outlined buttons "Contact Us" and "Team Members" side by side (same style as before: thin border, no fill, same size as the old ones, no text wrapping).
-- Remove the round social-icon row from under the newsletter box.
-- RIGHT side: THREE columns instead of two: SHOP, FOLLOW, POLICIES.
-  - SHOP: Women's, Men's, Kids, Bags, Jewellery (dynamic from categories, as now).
-  - FOLLOW: social links as before: round icon + label (Instagram, Facebook, WhatsApp, TikTok), only socials that have a URL in store_details.
-  - POLICIES: Privacy Policy, Refund Policy, Terms of Service, Shipping Policy.
-- Remove the HELP column completely (Contact Us and Team Members now live as buttons under the newsletter box).
-- Tighten the spacing so the top area is compact: reduce the vertical gap between the wordmark, tagline, newsletter and buttons, reduce the gap between the top area and the payment logos row, and keep the column gaps balanced. Use the same column heading style and ~13px link text as the previous footer.
+CHANGES:
+1) Remove the PayPal logo from the footer payment row, and delete public/payments/paypal.png since nothing uses it anymore.
+2) The payment row now has 4 logos in this order: Meezan Bank, JazzCash, NayaPay, Easypaisa. Alt texts: "Meezan Bank", "JazzCash", "NayaPay", "Easypaisa". Not links. Use next/image with explicit width/height, object-contain, no filters, no recolor.
+3) The logos have different aspect ratios, so do NOT use one common height. Use these fixed heights (width auto), desktop / mobile:
+   - Meezan Bank: 36px / 30px
+   - JazzCash: 44px / 36px
+   - NayaPay: 22px / 18px
+   - Easypaisa: 36px / 30px
+   Natural aspect ratios (width/height): Meezan 3.34, JazzCash 1.27, NayaPay 5.78, Easypaisa 3.58. Pass matching width/height props to next/image accordingly.
+4) Keep all 4 in ONE centered row, items-center, equal gap (~28px desktop, ~16px mobile), no text, no background, no border. If a very small screen has no room, allow wrap and keep it centered.
+5) After applying, check that all 4 have the same visual weight; if one still looks clearly bigger or smaller, adjust its height by a few px.
 
-2) MOBILE (below md):
-- Wordmark at top (no tagline), centered.
-- Accordion sections: SHOP, FOLLOW, POLICIES (closed by default, one open at a time, same motion). FOLLOW lists the social links with icon + label.
-- Then the newsletter box, then the "Contact Us" and "Team Members" buttons, then the payment logos, then the copyright line.
-- Remove the standalone social icon row (socials are now inside FOLLOW).
+KEEP AS IS: everything else in the footer (layout, columns, copyright line and link, floating-button clearance, homepage footer slide behavior, responsive behavior, motion tokens). Do not add a Cash on Delivery badge or any text.
 
-3) PAYMENT LOGOS: make all 3 look the same size visually. The logos have different aspect ratios, so do NOT use one common height. Use these fixed heights (width auto, object-contain), desktop / mobile:
-- PayPal: 32px / 26px
-- Meezan Bank: 38px / 30px
-- JazzCash: 48px / 38px
-Keep them in one centered row with an equal gap (~32px desktop, ~20px mobile), vertically centered (items-center), no text, no background, no border. After applying, compare visually and adjust these heights slightly if one still looks bigger/smaller than the others, so all 3 have the same visual weight.
-
-KEEP AS IS: bottom copyright line and its link, the floating-button clearance (140px side space on desktop, 72px bottom padding on mobile), homepage footer as the final full-screen slide, min-height on non-home pages, all responsive behavior and motion tokens.
-
-AFTER CODING: run `npx tsc --noEmit`, `npm run lint`, `npm run build` and fix errors. Update the footer section in AGENTS.md to match. No screenshot requests. Report briefly which files changed. Do NOT push or deploy.
+AFTER CODING: run `npx tsc --noEmit`, `npm run lint`, `npm run build` and fix errors. Update the payment logos bullet in AGENTS.md (4 logos: Meezan Bank, JazzCash, NayaPay, Easypaisa; PayPal removed). No screenshot requests. Report briefly which files changed. Do NOT push or deploy.
