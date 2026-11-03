@@ -30,7 +30,9 @@ export default function Price({
       initial={hydrated ? { opacity: 0 } : false}
       animate={{ opacity: 1 }}
       transition={TRANSITION_POPOVER}
-      className={className}
+      className={['whitespace-nowrap tabular-nums', className]
+        .filter(Boolean)
+        .join(" ")}
     >
       {formatPrice(amount, currency, rates)}
     </motion.span>

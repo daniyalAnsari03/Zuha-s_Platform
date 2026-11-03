@@ -1,6 +1,6 @@
 import Price from "@/components/currency/Price";
 import FadeInImage from "@/components/ui/FadeInImage";
-import { formatAmount } from "@/lib/order-types";
+import { formatPkr } from "@/lib/currency";
 import { IMAGE_QUALITY } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +62,7 @@ export default function OrderSummaryCard({
     displayCurrency ? (
       <Price amount={amount} className={amountClassName} />
     ) : (
-      <span className={amountClassName}>{formatAmount(amount)}</span>
+      <span className={amountClassName}>{formatPkr(amount)}</span>
     );
 
   return (

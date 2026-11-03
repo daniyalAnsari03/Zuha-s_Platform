@@ -346,7 +346,7 @@ export default function CheckoutForm({
         */}
         {currency !== "PKR" ? (
           <p className="mt-3 text-xs leading-relaxed text-black/50">
-            Order will be placed and charged in PKR (Rs {formatPkr(subtotal)})
+            Order will be placed and charged in PKR ({formatPkr(subtotal)})
           </p>
         ) : null}
       </aside>

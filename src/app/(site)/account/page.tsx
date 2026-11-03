@@ -6,8 +6,9 @@ import SignOutButton from "@/components/auth/SignOutButton";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import OrderStatusBadge from "@/components/orders/OrderStatusBadge";
 import { getAdminAccess } from "@/lib/admin/guard";
+import { formatPkr } from "@/lib/currency";
 import { getCustomerOrders } from "@/lib/order-data";
-import { formatAmount, formatOrderDate } from "@/lib/order-types";
+import { formatOrderDate } from "@/lib/order-types";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -103,7 +104,7 @@ export default async function AccountPage() {
                   <span className="flex items-center justify-between gap-4 sm:justify-end">
                     <OrderStatusBadge status={order.status} />
                     <span className="text-sm font-medium">
-                      {formatAmount(order.total)}
+                      {formatPkr(order.total)}
                     </span>
                   </span>
                 </Link>
