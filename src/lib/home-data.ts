@@ -13,6 +13,11 @@ export type HomeCategorySlide = {
   mobileImageUrl: string | null;
 };
 
+export type HomeSaleSlide = {
+  imageUrl: string;
+  mobileImageUrl: string | null;
+};
+
 export type HomeAnnouncement = {
   id: string;
   text: string;

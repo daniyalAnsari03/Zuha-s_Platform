@@ -33,6 +33,7 @@ type MenuPanelProps = {
   /** Navbar header, so a click on the hamburger itself is not an outside click. */
   anchorRef: React.RefObject<HTMLElement | null>;
   categories: MenuCategory[];
+  saleVisible: boolean;
 };
 
 /**
@@ -55,6 +56,7 @@ export default function MenuPanel({
   onClose,
   anchorRef,
   categories,
+  saleVisible,
 }: MenuPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -136,7 +138,11 @@ export default function MenuPanel({
                 </button>
               </header>
 
-              <MenuList categories={categories} onClose={onClose} />
+              <MenuList
+                categories={categories}
+                onClose={onClose}
+                saleVisible={saleVisible}
+              />
             </motion.div>
           </>
         ) : null}
@@ -148,6 +154,7 @@ export default function MenuPanel({
 type MenuListProps = {
   categories: MenuCategory[];
   onClose: () => void;
+  saleVisible: boolean;
 };
 
 /**
@@ -158,7 +165,7 @@ type MenuListProps = {
  * (or `null`) is what makes it an accordion: opening a second category closes
  * the first, and tapping the open one closes it.
  */
-function MenuList({ categories, onClose }: MenuListProps) {
+function MenuList({ categories, onClose, saleVisible }: MenuListProps) {
   const reduceMotion = useReducedMotion();
   const { user } = useCurrentUser();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -190,6 +197,18 @@ function MenuList({ categories, onClose }: MenuListProps) {
       data-scrollable
     >
       <ul className="flex flex-col">
+        {saleVisible ? (
+          <motion.li variants={menuItemVariant}>
+            <Link
+              href="/sale"
+              onClick={onClose}
+              className="flex min-h-11 items-center py-2 font-sans text-base font-light tracking-[0.02em] uppercase transition-colors hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum sm:text-lg"
+            >
+              Sale
+            </Link>
+          </motion.li>
+        ) : null}
+
         {categories.map((category, index) => {
           const hasSubCategories = category.subCategories.length > 0;
           const expanded = hasSubCategories && expandedId === category.id;

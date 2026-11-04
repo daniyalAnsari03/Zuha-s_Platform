@@ -46,7 +46,7 @@ export const MAX_GALLERY_IMAGES = 10;
 export const MAX_URL_LENGTH = 2000;
 
 /** Which prefix inside the `store-images` bucket a file belongs in. */
-export const UPLOAD_FOLDERS = ["categories", "products", "team"] as const;
+export const UPLOAD_FOLDERS = ["categories", "products", "team", "sale"] as const;
 
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 
@@ -305,6 +305,37 @@ export function readOptionalPrice(
 
 /** The highest conversion rate the Settings form accepts ("1 <CUR> = X PKR"). */
 export const MAX_CURRENCY_RATE = 10_000;
+
+/** Highest flat delivery charge accepted in Settings, in PKR. */
+export const MAX_DELIVERY_CHARGE = 100_000;
+
+/**
+ * An optional-looking delivery charge. Empty means free; otherwise accept only
+ * decimal notation with at most two places and a value in the configured range.
+ */
+export function readDeliveryCharge(
+  value: unknown,
+): { ok: true; value: number } | ActionError {
+  if (typeof value !== "string") {
+    return actionFail("Delivery charge must be a number.");
+  }
+
+  const raw = value.trim();
+  if (!raw) return { ok: true, value: 0 };
+  if (!/^(?:\d+(?:\.\d{0,2})?|\.\d{1,2})$/.test(raw)) {
+    return actionFail("Delivery charge must be a number with at most two decimals.");
+  }
+
+  const charge = Number(raw);
+  if (!Number.isFinite(charge) || charge < 0) {
+    return actionFail("Delivery charge must be zero or greater.");
+  }
+  if (charge > MAX_DELIVERY_CHARGE) {
+    return actionFail(`Delivery charge must be ${MAX_DELIVERY_CHARGE} or less.`);
+  }
+
+  return { ok: true, value: charge };
+}
 
 /**
  * An optional currency conversion rate ("1 <CUR> = X PKR").

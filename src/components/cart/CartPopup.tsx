@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useMemo } from "react";
 import type { RefObject } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
@@ -15,7 +16,8 @@ import {
   fadeUpVariant,
   staggerContainer,
 } from "@/lib/motion";
-import { cartItemKey } from "@/lib/cart";
+import { cartItemKey, cartProductQuantity } from "@/lib/cart";
+import { useCartStock } from "@/components/cart/useCartStock";
 
 type CartPopupProps = {
   open: boolean;
@@ -39,6 +41,39 @@ const THUMB_SIZES = "(max-width: 639px) 3.375rem, 3.9375rem";
 export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) {
   const { items, count, subtotal, hydrated, increment, decrement, removeItem } =
     useCart();
+  const productIds = useMemo(
+    () => items.map((item) => item.productId),
+    [items],
+  );
+  const { stockById, loading: stockLoading, error: stockError } = useCartStock(
+    productIds,
+    open && hydrated,
+  );
+  const stockIssues = useMemo(() => {
+    if (stockLoading || stockError) return new Map<string, string>();
+
+    const issues = new Map<string, string>();
+    for (const item of items) {
+      if (issues.has(item.productId)) continue;
+      const stock = stockById[item.productId] ?? 0;
+      const total = cartProductQuantity(items, item.productId);
+      if (stock <= 0) {
+        issues.set(
+          item.productId,
+          `${item.name} is out of stock. Reduce the quantity or remove it before checkout.`,
+        );
+      } else if (total > stock) {
+        issues.set(
+          item.productId,
+          `Only ${stock} left for ${item.name}. Reduce the quantity or remove it before checkout.`,
+        );
+      }
+    }
+
+    return issues;
+  }, [items, stockById, stockError, stockLoading]);
+  const checkoutBlocked =
+    stockLoading || stockError !== null || stockIssues.size > 0;
 
   return (
     <NavbarPopover open={open} onClose={onClose} anchorRef={anchorRef} label="Cart">
@@ -87,6 +122,8 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
           >
             {items.map((item) => {
               const key = cartItemKey(item.productId, item.size, item.color);
+              const stock = stockById[item.productId] ?? 0;
+              const productQuantity = cartProductQuantity(items, item.productId);
 
               return (
                 <motion.li
@@ -114,11 +151,21 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{item.name}</p>
+                        {item.sku ? (
+                          <p className="mt-0.5 break-all text-xs text-black/45">
+                            SKU: {item.sku}
+                          </p>
+                        ) : null}
                         {item.size || item.color ? (
                           <p className="mt-0.5 text-xs text-black/50">
                             {item.size ? `Size: ${item.size}` : null}
                             {item.size && item.color ? " · " : null}
                             {item.color ? `Colour: ${item.color}` : null}
+                          </p>
+                        ) : null}
+                        {stockIssues.has(item.productId) ? (
+                          <p role="alert" className="mt-1 text-xs text-plum">
+                            {stockIssues.get(item.productId)}
                           </p>
                         ) : null}
                       </div>
@@ -148,9 +195,14 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
                         </span>
                         <button
                           type="button"
-                          onClick={() => increment(key)}
+                          onClick={() => increment(key, stock)}
+                          disabled={
+                            stockLoading ||
+                            stockError !== null ||
+                            productQuantity >= stock
+                          }
                           aria-label={`Increase quantity of ${item.name}`}
-                          className="flex h-11 w-11 items-center justify-center text-base transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                          className="flex h-11 w-11 items-center justify-center text-base transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           +
                         </button>
@@ -169,17 +221,39 @@ export default function CartPopup({ open, onClose, anchorRef }: CartPopupProps) 
 
           <footer className="flex flex-col gap-3 border-t border-black/10 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-sm">
-              <span className="text-black/50">Total</span>{" "}
+              <span className="text-black/50">Subtotal</span>{" "}
               <Price amount={subtotal} className="ml-2 font-medium" />
             </p>
 
-            <Link
-              href="/checkout"
-              onClick={onClose}
-              className="inline-flex min-h-11 items-center justify-center bg-plum px-8 text-xs tracking-[0.16em] text-white uppercase transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
-            >
-              Checkout
-            </Link>
+            <div className="flex flex-col gap-2 sm:items-end">
+              {stockLoading ? (
+                <p role="status" className="text-xs text-black/50">
+                  Checking current stock...
+                </p>
+              ) : null}
+              {stockError ? (
+                <p role="alert" className="text-xs text-plum">
+                  {stockError}
+                </p>
+              ) : null}
+              {checkoutBlocked ? (
+                <button
+                  type="button"
+                  disabled
+                  className="inline-flex min-h-11 items-center justify-center bg-plum px-8 text-xs tracking-[0.16em] text-white uppercase opacity-50"
+                >
+                  Checkout
+                </button>
+              ) : (
+                <Link
+                  href="/checkout"
+                  onClick={onClose}
+                  className="inline-flex min-h-11 items-center justify-center bg-plum px-8 text-xs tracking-[0.16em] text-white uppercase transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                >
+                  Checkout
+                </Link>
+              )}
+            </div>
           </footer>
         </>
       )}

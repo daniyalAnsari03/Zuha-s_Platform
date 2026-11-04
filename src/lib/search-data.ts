@@ -20,6 +20,7 @@ export type SearchProductHit = {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   imageUrl: string | null;
   price: number;
   discountPrice: number | null;
@@ -36,9 +37,11 @@ type ProductRow = {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   price: number;
   discount_price: number | null;
   images: string[] | null;
+  created_at: string;
 };
 
 /**
@@ -137,26 +140,51 @@ export async function searchProducts(term: string): Promise<SearchProductHit[]> 
   if (needle === "") return [];
 
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select("id, name, slug, price, discount_price, images")
-    .ilike("name", likePattern(term))
-    .eq("is_active", true)
-    .order("created_at", { ascending: false })
-    .limit(SEARCH_RESULT_LIMIT);
+  const [nameResult, skuResult] = await Promise.all([
+    supabase
+      .from("products")
+      .select("id, name, slug, sku, price, discount_price, images, created_at")
+      .ilike("name", likePattern(term))
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(SEARCH_RESULT_LIMIT),
+    supabase
+      .from("products")
+      .select("id, name, slug, sku, price, discount_price, images, created_at")
+      .ilike("sku", likePattern(term))
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(SEARCH_RESULT_LIMIT),
+  ]);
 
-  if (error) {
+  if (nameResult.error || skuResult.error) {
+    const error = nameResult.error ?? skuResult.error;
     console.error("[search-data] products search query failed.", error);
     throw error;
   }
 
-  return (data ?? []).map((row: ProductRow) => ({
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    imageUrl: row.images?.[0] ?? null,
-    price: Number(row.price),
-    discountPrice:
-      row.discount_price === null ? null : Number(row.discount_price),
-  }));
+  const skuMatchIds = new Set((skuResult.data ?? []).map((row) => row.id));
+  const matches = new Map<string, ProductRow>();
+  for (const row of [...(nameResult.data ?? []), ...(skuResult.data ?? [])]) {
+    matches.set(row.id, row);
+  }
+
+  return [...matches.values()]
+    .sort(
+      (left, right) =>
+        Number(skuMatchIds.has(right.id)) - Number(skuMatchIds.has(left.id)) ||
+        right.created_at.localeCompare(left.created_at) ||
+        left.id.localeCompare(right.id),
+    )
+    .slice(0, SEARCH_RESULT_LIMIT)
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      slug: row.slug,
+      sku: row.sku,
+      imageUrl: row.images?.[0] ?? null,
+      price: Number(row.price),
+      discountPrice:
+        row.discount_price === null ? null : Number(row.discount_price),
+    }));
 }

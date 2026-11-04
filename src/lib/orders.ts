@@ -30,6 +30,7 @@
  */
 
 import { randomBytes } from "node:crypto";
+import { revalidatePath } from "next/cache";
 
 import {
   MAX_LINE_QUANTITY,
@@ -41,9 +42,9 @@ import {
   type PlaceOrderResult,
 } from "@/lib/order-types";
 import { effectivePrice, parseOptionList } from "@/lib/products";
+import { revalidateStorefront } from "@/lib/admin/revalidate";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { Database } from "@/types/database";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 
@@ -66,7 +67,7 @@ type RequestedLine = {
 
 /** The product columns needed to price and label a line. Nothing more. */
 const PRODUCT_COLUMNS =
-  "id, name, slug, price, discount_price, sizes, color, is_active";
+  "id, name, slug, sku, price, discount_price, sizes, color, stock_quantity, is_active";
 
 /**
  * A row of {@link PRODUCT_COLUMNS}. Declared here so the pricing helpers are
@@ -76,10 +77,12 @@ type SellableProduct = {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   price: number;
   discount_price: number | null;
   sizes: string | null;
   color: string | null;
+  stock_quantity: number | null;
   is_active: boolean;
 };
 
@@ -119,88 +122,78 @@ export async function placeOrder(payload: PlaceOrderPayload): Promise<PlaceOrder
     const lines = readRequestedLines(payload?.items);
     const products = await loadSellableProducts(admin, lines);
     const { items, subtotal } = priceLines(lines, products);
+    const delivery = await loadDeliverySettings(admin);
+    const shippingFee = delivery.showDelivery ? delivery.deliveryCharge : 0;
+    const total = round(subtotal + shippingFee);
 
     const userId = await currentUserId();
-    const customerId = await resolveCustomerId(admin, details, userId);
     const orderNumber = await nextOrderNumber(admin);
     const confirmationToken = newConfirmationToken();
 
-    const { data: order, error: orderError } = await admin
-      .from("orders")
-      .insert({
-        order_number: orderNumber,
-        customer_id: customerId,
-        user_id: userId,
-        guest_token: null,
-        confirmation_token: confirmationToken,
-        status: "Order Placed",
-        customer_email: details.email,
-        customer_name: details.name,
-        customer_phone: details.phone,
-        shipping_address: details.address,
-        shipping_city: details.city,
-        // Not collected at checkout: the form asks for name, address, phone,
-        // email and city, and nothing else.
-        shipping_state: null,
-        shipping_postal_code: null,
-        shipping_country: null,
-        shipping_method: PAYMENT_METHOD,
-        subtotal,
-        shipping_fee: 0,
-        discount: 0,
-        total: subtotal,
-        payment_method: PAYMENT_METHOD,
-        payment_reference: null,
-        is_paid: false,
-        notes: null,
-        admin_notes: null,
-      })
-      .select("id")
-      .single();
+    const { data: orderId, error: orderError } = await admin.rpc(
+      "create_order_with_stock",
+      {
+        p_order_number: orderNumber,
+        p_customer_id: null,
+        p_user_id: userId,
+        p_confirmation_token: confirmationToken,
+        p_customer_email: details.email,
+        p_customer_name: details.name,
+        p_customer_phone: details.phone,
+        p_shipping_address: details.address,
+        p_shipping_city: details.city,
+        p_shipping_method: PAYMENT_METHOD,
+        p_subtotal: subtotal,
+        p_total: total,
+        p_payment_method: PAYMENT_METHOD,
+        p_order_items: items,
+        p_shipping_fee: shippingFee,
+        p_show_delivery: delivery.showDelivery,
+      },
+    );
 
-    if (orderError || !order) {
-      console.error("[orders] could not insert the order.", orderError);
-      throw new Error(GENERIC_FAILURE);
-    }
+    if (orderError || !orderId) {
+      const stockMessage = orderError
+        ? readStockFailure(orderError.message, products)
+        : null;
+      if (stockMessage) throw new OrderRejected(stockMessage);
 
-    let { error: itemsError } = await admin
-      .from("order_items")
-      .insert(items.map((item) => ({ ...item, order_id: order.id })));
-
-    /*
-     * `order_items.color` is added by migration 009. If it has not been applied
-     * yet the insert fails on an unknown column, so the colour is dropped once
-     * and the order still goes through instead of checkout going down. The
-     * warning tells whoever is looking at the log exactly which file to run.
-     */
-    if (itemsError && isMissingOrderColorColumnError(itemsError)) {
-      console.warn(
-        "[orders] order_items.color is missing; apply supabase/migrations/009_order_item_color.sql to store colours.",
-      );
-
-      const retried = await admin
-        .from("order_items")
-        .insert(
-          items.map((item) => ({
-            ...withoutColor(item),
-            order_id: order.id,
-            // The column really is absent on a pre-009 database, so this shape
-            // is legal only there — hence the deliberate cast around a half row.
-          } as unknown as Database["public"]["Tables"]["order_items"]["Insert"])),
+      if (orderError?.message === "STOCK_PRODUCT_UNAVAILABLE") {
+        throw new OrderRejected(
+          "One or more items in your cart are no longer available.",
         );
+      }
 
-      itemsError = retried.error;
+      console.error("[orders] could not create the order transaction.", orderError);
+      throw new Error(GENERIC_FAILURE);
     }
 
-    if (itemsError) {
-      // Never leave an order row without its lines behind: the admin would see a
-      // placed order worth money that contains nothing.
-      console.error(
-        `[orders] could not insert the items for ${orderNumber}; removing the order.`,
-        itemsError,
-      );
-      await admin.from("orders").delete().eq("id", order.id);
-      throw new Error(GENERIC_FAILURE);
+    // Customer profiles are best-effort and deliberately happen after the stock
+    // transaction, so an out-of-stock refusal leaves no customer/order/stock
+    // changes behind.
+    try {
+      const customerId = await resolveCustomerId(admin, details, userId);
+      if (customerId) {
+        const { error } = await admin
+          .from("orders")
+          .update({ customer_id: customerId })
+          .eq("id", orderId);
+        if (error) {
+          console.error("[orders] could not attach the customer to the order.", error);
+        }
+      }
+    } catch (error) {
+      console.error("[orders] could not attach the customer to the order.", error);
+    }
+
+    try {
+      revalidateStorefront({
+        productSlugs: Array.from(new Set(items.map((item) => item.product_slug))),
+      });
+      revalidatePath("/admin/inventory");
+      revalidatePath("/admin");
+    } catch (error) {
+      console.error("[orders] the stock cache could not be invalidated.", error);
     }
 
     return { ok: true, orderNumber, token: confirmationToken };
@@ -215,6 +208,25 @@ export async function placeOrder(payload: PlaceOrderPayload): Promise<PlaceOrder
 
     return { ok: false, message: GENERIC_FAILURE };
   }
+}
+
+function readStockFailure(
+  message: string,
+  products: Map<string, SellableProduct>,
+): string | null {
+  const outOfStock = /^STOCK_OUT:([0-9a-f-]{36})$/i.exec(message);
+  if (outOfStock) {
+    const product = products.get(outOfStock[1]);
+    return product ? `${product.name} is out of stock` : null;
+  }
+
+  const shortStock = /^STOCK_SHORT:([0-9a-f-]{36}):(\d+)$/i.exec(message);
+  if (shortStock) {
+    const product = products.get(shortStock[1]);
+    return product ? `Only ${shortStock[2]} left for ${product.name}` : null;
+  }
+
+  return null;
 }
 
 // -----------------------------------------------------------------------------
@@ -315,7 +327,12 @@ async function loadSellableProducts(
     throw new OrderRejected(`${unavailable.name} is no longer available.`);
   }
 
-  return new Map(rows.map((row) => [row.id, row]));
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      { ...row, stock_quantity: Math.max(0, Number(row.stock_quantity ?? 0)) },
+    ]),
+  );
 }
 
 /** What a product sells for right now: its discount price when it has one. */
@@ -330,11 +347,39 @@ function round(amount: number): number {
   return Math.round(amount * 100) / 100;
 }
 
+async function loadDeliverySettings(
+  admin: AdminClient,
+): Promise<{ deliveryCharge: number; showDelivery: boolean }> {
+  const { data, error } = await admin
+    .from("store_details")
+    .select("delivery_charge, show_delivery")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("[orders] could not read delivery settings.", error);
+    throw new Error(GENERIC_FAILURE);
+  }
+
+  const deliveryCharge = Number(data.delivery_charge);
+  if (
+    !Number.isFinite(deliveryCharge) ||
+    deliveryCharge < 0 ||
+    deliveryCharge > 100_000
+  ) {
+    console.error("[orders] delivery settings contain an invalid charge.");
+    throw new Error(GENERIC_FAILURE);
+  }
+
+  return { deliveryCharge, showDelivery: data.show_delivery };
+}
+
 /** One priced line, exactly as it is inserted into `order_items`. */
 type PricedOrderItem = {
   product_id: string;
   product_name: string;
   product_slug: string;
+  sku: string;
   variant: string | null;
   color: string | null;
   unit_price: number;
@@ -353,6 +398,27 @@ function priceLines(lines: RequestedLine[], products: Map<string, SellableProduc
   const items: PricedOrderItem[] = [];
 
   let subtotal = 0;
+  const quantitiesByProduct = new Map<string, number>();
+
+  for (const line of lines) {
+    quantitiesByProduct.set(
+      line.productId,
+      (quantitiesByProduct.get(line.productId) ?? 0) + line.quantity,
+    );
+  }
+
+  for (const [productId, quantity] of quantitiesByProduct) {
+    const product = products.get(productId);
+    if (!product) {
+      throw new OrderRejected("One or more items in your cart are no longer available.");
+    }
+
+    const stock = Math.max(0, Number(product.stock_quantity ?? 0));
+    if (stock === 0) throw new OrderRejected(`${product.name} is out of stock`);
+    if (quantity > stock) {
+      throw new OrderRejected(`Only ${stock} left for ${product.name}`);
+    }
+  }
 
   for (const line of lines) {
     const row = products.get(line.productId);
@@ -390,6 +456,7 @@ function priceLines(lines: RequestedLine[], products: Map<string, SellableProduc
       product_id: row.id,
       product_name: row.name,
       product_slug: row.slug,
+      sku: row.sku,
       variant: line.size,
       color: colors.length > 0 ? line.color : null,
       unit_price: unitPrice,
@@ -399,36 +466,6 @@ function priceLines(lines: RequestedLine[], products: Map<string, SellableProduc
   }
 
   return { items, subtotal };
-}
-
-/**
- * True when the insert failed only because `order_items.color` does not exist —
- * i.e. migration 009 has not been applied yet. Code 42703 is Postgres's
- * "undefined column"; the message is checked too so a rename or a different
- * missing column is not mistaken for this one.
- */
-function isMissingOrderColorColumnError(error: {
-  message: string;
-}): boolean {
-  // Only the exact missing-column message counts. A bare 42703 could be any
-  // undefined column; misreading it would strip a field from an otherwise
-  // valid insert for nothing.
-  return /column "color" of relation "order_items" does not exist/.test(
-    error.message,
-  );
-}
-
-/** The same row minus the `color` field, for an order_items table without it. */
-function withoutColor(item: PricedOrderItem): Omit<PricedOrderItem, "color"> {
-  return {
-    product_id: item.product_id,
-    product_name: item.product_name,
-    product_slug: item.product_slug,
-    variant: item.variant,
-    unit_price: item.unit_price,
-    quantity: item.quantity,
-    line_total: item.line_total,
-  };
 }
 
 /**

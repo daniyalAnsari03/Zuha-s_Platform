@@ -12,6 +12,7 @@ import {
 import {
   cartItemCount,
   cartItemKey,
+  cartProductQuantity,
   cartSubtotal,
   isCartItemArray,
   type CartItem,
@@ -24,9 +25,12 @@ const STORAGE_KEY = "zuha.cart.v1";
 export type AddToCartInput = {
   productId: string;
   name: string;
+  sku: string | null;
   image: string | null;
   /** Pass the effective (discount) price, not the struck-through one. */
   price: number;
+  /** Current stock snapshot shared by all variants of this product. */
+  stockQuantity: number;
   size: string | null;
   /** The colour the shopper picked, or null when the product has none. */
   color: string | null;
@@ -45,9 +49,9 @@ type CartContextValue = {
    */
   hydrated: boolean;
   addItem: (input: AddToCartInput) => void;
-  increment: (key: string) => void;
+  increment: (key: string, stockQuantity?: number) => void;
   decrement: (key: string) => void;
-  setQuantity: (key: string, quantity: number) => void;
+  setQuantity: (key: string, quantity: number, stockQuantity?: number) => void;
   removeItem: (key: string) => void;
   clearCart: () => void;
 };
@@ -90,22 +94,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const addItem = useCallback(
     (input: AddToCartInput) => {
-      const quantity = Math.max(1, Math.floor(input.quantity ?? 1));
+      const requestedQuantity = Math.max(1, Math.floor(input.quantity ?? 1));
+      const stockQuantity = Number.isFinite(input.stockQuantity)
+        ? Math.max(0, Math.floor(input.stockQuantity))
+        : 0;
       const key = cartItemKey(input.productId, input.size, input.color);
 
       update((current) => {
+        const available = Math.max(
+          0,
+          stockQuantity - cartProductQuantity(current, input.productId),
+        );
+        const quantity = Math.min(requestedQuantity, available);
+        if (quantity === 0) return current;
+
         const existing = current.findIndex(
           (item) => cartItemKey(item.productId, item.size, item.color) === key,
         );
 
         if (existing === -1) {
           return [
-            ...current,
+            ...current.map((item) =>
+              item.productId === input.productId
+                ? { ...item, stockQuantity }
+                : item,
+            ),
             {
               productId: input.productId,
               name: input.name,
+              sku: input.sku,
               image: input.image,
               price: input.price,
+              stockQuantity,
               size: input.size,
               color: input.color,
               quantity,
@@ -113,35 +133,66 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
           ];
         }
 
-        return current.map((item, index) =>
-          index === existing
-            ? { ...item, quantity: item.quantity + quantity }
-            : item,
-        );
+        return current.map((item, index) => {
+          if (item.productId !== input.productId) return item;
+          if (index === existing) {
+            return {
+              ...item,
+              sku: item.sku ?? input.sku,
+              stockQuantity,
+              quantity: item.quantity + quantity,
+            };
+          }
+          return { ...item, stockQuantity };
+        });
       });
     },
     [update],
   );
 
   const changeQuantity = useCallback(
-    (key: string, delta: number) => {
-      update((current) =>
-        current.flatMap((item) => {
+    (key: string, delta: number, latestStock?: number) => {
+      update((current) => {
+        const target = current.find(
+          (item) => cartItemKey(item.productId, item.size, item.color) === key,
+        );
+        if (!target) return current;
+
+        const stockQuantity =
+          typeof latestStock === "number" && Number.isFinite(latestStock)
+            ? Math.max(0, Math.floor(latestStock))
+            : target.stockQuantity ?? Number.MAX_SAFE_INTEGER;
+        const quantityInCart = cartProductQuantity(current, target.productId);
+        const increase = delta > 0
+          ? Math.min(delta, Math.max(0, stockQuantity - quantityInCart))
+          : delta;
+
+        return current.flatMap((item) => {
           if (cartItemKey(item.productId, item.size, item.color) !== key) {
-            return [item];
+            return item.productId === target.productId &&
+              typeof latestStock === "number"
+              ? [{ ...item, stockQuantity }]
+              : [item];
           }
 
-          const quantity = item.quantity + delta;
+          const quantity = item.quantity + increase;
           // Dropping to zero removes the line, so there is never an empty row.
-          return quantity > 0 ? [{ ...item, quantity }] : [];
-        }),
-      );
+          return quantity > 0
+            ? [{
+                ...item,
+                quantity,
+                ...(typeof latestStock === "number" ? { stockQuantity } : {}),
+              }]
+            : [];
+        });
+      });
     },
     [update],
   );
 
   const increment = useCallback(
-    (key: string) => changeQuantity(key, 1),
+    (key: string, stockQuantity?: number) =>
+      changeQuantity(key, 1, stockQuantity),
     [changeQuantity],
   );
 
@@ -151,16 +202,32 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 
   const setQuantity = useCallback(
-    (key: string, quantity: number) => {
-      const next = Math.max(1, Math.floor(quantity));
+    (key: string, quantity: number, latestStock?: number) => {
+      update((current) => {
+        const target = current.find(
+          (item) => cartItemKey(item.productId, item.size, item.color) === key,
+        );
+        if (!target) return current;
 
-      update((current) =>
-        current.map((item) =>
-          cartItemKey(item.productId, item.size, item.color) === key
-            ? { ...item, quantity: next }
-            : item,
-        ),
-      );
+        const stockQuantity =
+          typeof latestStock === "number" && Number.isFinite(latestStock)
+            ? Math.max(0, Math.floor(latestStock))
+            : target.stockQuantity ?? Number.MAX_SAFE_INTEGER;
+        const otherQuantity =
+          cartProductQuantity(current, target.productId) - target.quantity;
+        const maximum = stockQuantity - otherQuantity;
+        if (maximum < 1) return current;
+
+        const next = Math.min(Math.max(1, Math.floor(quantity)), maximum);
+        return current.map((item) =>
+          item.productId === target.productId &&
+          typeof latestStock === "number"
+            ? { ...item, stockQuantity }
+            : cartItemKey(item.productId, item.size, item.color) === key
+              ? { ...item, quantity: next }
+              : item,
+        );
+      });
     },
     [update],
   );

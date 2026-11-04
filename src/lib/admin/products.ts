@@ -438,4 +438,5 @@ export async function deleteProduct(input: {
 function refreshAdminProductScreens(): void {
   revalidatePath("/admin/products");
   revalidatePath("/admin/inventory");
+  revalidatePath("/admin");
 }

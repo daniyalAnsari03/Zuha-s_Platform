@@ -11,6 +11,7 @@ import {
 } from "@/lib/order-types";
 import { effectivePrice } from "@/lib/products";
 import { getProductBySlug } from "@/lib/product-data";
+import { getDeliverySettings } from "@/lib/store-details";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
@@ -47,9 +48,10 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
   const slug = singleParam(params.product)?.trim();
 
   const supabase = await createClient();
-  const [authResult, buyNow] = await Promise.all([
+  const [authResult, buyNow, deliverySettings] = await Promise.all([
     supabase.auth.getUser(),
     slug ? resolveBuyNowLine(slug, params) : null,
+    getDeliverySettings(),
   ]);
   const {
     data: { user },
@@ -89,6 +91,8 @@ export default async function CheckoutPage({ searchParams }: CheckoutPageProps) 
           <CheckoutForm
             mode={buyNow ? "buynow" : "cart"}
             buyNow={buyNow}
+            deliveryCharge={deliverySettings.deliveryCharge}
+            showDelivery={deliverySettings.showDelivery}
             {...prefill}
           />
         )}
@@ -115,9 +119,12 @@ async function resolveBuyNowLine(
   const rawQty = singleParam(params.qty);
   const quantity = rawQty === undefined ? 1 : Number(rawQty);
 
-  if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_LINE_QUANTITY) {
+  if (!Number.isInteger(quantity) || quantity < 1) {
     return null;
   }
+  const stockQuantity = Math.max(0, product.stockQuantity);
+  const maxQuantity = Math.min(MAX_LINE_QUANTITY, stockQuantity);
+  if (maxQuantity < 1) return null;
 
   // A product the admin gave sizes to cannot be bought without choosing one.
   const size = singleParam(params.size)?.trim();
@@ -146,10 +153,12 @@ async function resolveBuyNowLine(
   return {
     productId: product.id,
     name: product.name,
+    sku: product.sku,
     image: product.images[0] ?? null,
+    stockQuantity,
     unitPrice: effectivePrice(product),
     size: size || null,
     color: color || null,
-    quantity,
+    quantity: Math.min(quantity, maxQuantity),
   };
 }

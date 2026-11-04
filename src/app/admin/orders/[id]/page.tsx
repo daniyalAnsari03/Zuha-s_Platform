@@ -105,6 +105,12 @@ export default async function AdminOrderDetailPage({
                     {item.productName}
                   </p>
 
+                  {item.sku ? (
+                    <p className="mt-0.5 break-all text-xs text-black/45">
+                      SKU: {item.sku}
+                    </p>
+                  ) : null}
+
                   <p className="mt-0.5 text-xs text-black/45">
                     {[
                       item.size ? `Size ${item.size}` : null,
@@ -139,12 +145,16 @@ export default async function AdminOrderDetailPage({
             <dl className="flex flex-col gap-2.5 text-sm">
               <TotalRow label="Subtotal" value={formatAmount(order.subtotal)} />
 
-              <TotalRow
-                label="Shipping"
-                value={
-                  order.shippingFee > 0 ? formatAmount(order.shippingFee) : "Free"
-                }
-              />
+              {order.showDelivery ? (
+                <TotalRow
+                  label="Delivery"
+                  value={
+                    order.shippingFee > 0
+                      ? formatAmount(order.shippingFee)
+                      : "Free"
+                  }
+                />
+              ) : null}
 
               {order.discount > 0 ? (
                 <TotalRow

@@ -10,8 +10,8 @@ import ProductsManager from "@/components/admin/ProductsManager";
  *
  * The page fetches on the server — through `requireAdmin()` first, then the
  * service-role readers — and hands the result to a client manager that filters by
- * name. The stock quantity is not here: it lives on `/admin/inventory`, which is
- * where the Dashboard's low-stock list will read it from too.
+ * name. Stock quantity and its threshold are editable here and on `/admin/inventory`;
+ * both screens and the Dashboard's low-stock list read the same product columns.
  */
 export default async function AdminProductsPage({
   searchParams,

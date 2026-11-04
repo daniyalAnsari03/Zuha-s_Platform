@@ -16,6 +16,7 @@ import {
   effectivePrice,
   type ProductListItem,
 } from "@/lib/products";
+import { cartProductQuantity } from "@/lib/cart";
 import { IMAGE_QUALITY } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
@@ -67,19 +68,26 @@ type ProductCardProps = {
 export default function ProductCard({ product, priority = false }: ProductCardProps) {
   const { openQuickView } = useQuickView();
   const { isSaved, toggle } = useWishlist();
-  const { addItem } = useCart();
+  const { items: cartItems, addItem, hydrated: cartHydrated } = useCart();
   const percent = discountPercent(product);
   const isDiscounted = percent !== null;
   const saved = isSaved(product.id);
+  const remainingStock = Math.max(
+    0,
+    product.stockQuantity -
+      cartProductQuantity(cartItems, product.id),
+  );
 
   const detailData = useMemo<ProductDetailData>(
     () => ({
       id: product.id,
       name: product.name,
       slug: product.slug,
+      sku: product.sku,
       description: null,
       price: product.price,
       discountPrice: product.discountPrice,
+      stockQuantity: product.stockQuantity,
       sizes: product.sizes,
       colors: product.colors,
       images: product.imageUrl ? [product.imageUrl] : [],
@@ -92,7 +100,7 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
   );
 
   return (
-    <article className="group/card relative flex flex-col">
+    <article className="group/card relative flex h-full flex-col">
       <div className="relative bg-black/5">
         <div className="relative aspect-[2/3] w-full overflow-hidden">
           {product.imageUrl ? (
@@ -232,20 +240,31 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
               addItem({
                 productId: product.id,
                 name: product.name,
+                sku: product.sku,
                 image: product.imageUrl,
                 price: effectivePrice(product),
+                stockQuantity: product.stockQuantity,
                 size: null,
                 color: null,
               });
             }}
+            disabled={!cartHydrated || remainingStock === 0}
+            aria-label={
+              product.stockQuantity === 0
+                ? `${product.name} is out of stock`
+                : remainingStock === 0
+                  ? `All available ${product.name} stock is already in your cart`
+                  : `Add ${product.name} to cart`
+            }
             className={cn(
               "min-h-10 w-full bg-plum px-4 py-2.5 text-sm font-medium text-white",
               "reveal:min-h-11 reveal:py-2.5",
               "transition-colors hover:bg-plum-dark",
               "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum",
+              "disabled:cursor-not-allowed disabled:opacity-50",
             )}
           >
-            Add to Cart
+            {product.stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
           </button>
         </div>
 
@@ -258,10 +277,16 @@ export default function ProductCard({ product, priority = false }: ProductCardPr
         </Link>
       </div>
 
-      <div className="mt-3 sm:mt-4">
+      <div className="mt-3 flex min-w-0 flex-1 flex-col sm:mt-4">
         <h3 className="text-sm leading-snug sm:text-base">{product.name}</h3>
 
-        <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        {product.sku ? (
+          <p className="mt-1 truncate text-xs leading-4 text-black/45">
+            SKU: {product.sku}
+          </p>
+        ) : null}
+
+        <p className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1 pt-1.5">
           {isDiscounted ? (
             <>
               <Price

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
 
 import { useCart } from "@/components/cart/CartProvider";
+import { useCartStock } from "@/components/cart/useCartStock";
 import { useCurrency } from "@/components/currency/CurrencyProvider";
 import OrderSummaryCard, {
   type OrderLineView,
@@ -32,8 +33,10 @@ import { cn } from "@/lib/utils";
 export type BuyNowLine = {
   productId: string;
   name: string;
+  sku: string | null;
   image: string | null;
   unitPrice: number;
+  stockQuantity: number;
   size: string | null;
   color: string | null;
   quantity: number;
@@ -44,6 +47,8 @@ type CheckoutFormProps = {
   mode: "cart" | "buynow";
   /** Present only in `buynow` mode; the server passes null otherwise. */
   buyNow: BuyNowLine | null;
+  deliveryCharge: number;
+  showDelivery: boolean;
   /** Prefilled from the signed-in shopper, empty for a guest. */
   defaultName: string;
   defaultEmail: string;
@@ -54,6 +59,10 @@ const FIELD_CLASSES =
 
 const FIELD_LABEL_CLASSES =
   "block text-xs tracking-[0.16em] uppercase text-black/60";
+
+function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
 
 /**
  * Checkout: the delivery form and the order summary, Cash on Delivery only.
@@ -73,6 +82,8 @@ const FIELD_LABEL_CLASSES =
 export default function CheckoutForm({
   mode,
   buyNow,
+  deliveryCharge,
+  showDelivery,
   defaultName,
   defaultEmail,
 }: CheckoutFormProps) {
@@ -106,12 +117,13 @@ export default function CheckoutForm({
             {
               key: cartItemKey(buyNow.productId, buyNow.size, buyNow.color),
               name: buyNow.name,
+              sku: buyNow.sku,
               image: buyNow.image,
               variant: buyNow.size,
               color: buyNow.color,
               quantity: buyNow.quantity,
               unitPrice: buyNow.unitPrice,
-              lineTotal: buyNow.unitPrice * buyNow.quantity,
+              lineTotal: roundMoney(buyNow.unitPrice * buyNow.quantity),
             },
           ] satisfies OrderLineView[],
           orderItems: [
@@ -128,12 +140,13 @@ export default function CheckoutForm({
         lines: items.map((item) => ({
           key: cartItemKey(item.productId, item.size, item.color),
           name: item.name,
+          sku: item.sku ?? null,
           image: item.image,
           variant: item.size,
           color: item.color,
           quantity: item.quantity,
           unitPrice: item.price,
-          lineTotal: item.price * item.quantity,
+          lineTotal: roundMoney(item.price * item.quantity),
         })),
         orderItems: items.map((item) => ({
           productId: item.productId,
@@ -143,7 +156,50 @@ export default function CheckoutForm({
         })),
       };
 
-  const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0);
+  const subtotal = lines.reduce(
+    (sum, line) => roundMoney(sum + line.lineTotal),
+    0,
+  );
+  const appliedDeliveryFee = showDelivery ? deliveryCharge : 0;
+  const total = roundMoney(subtotal + appliedDeliveryFee);
+  const stockProductIds = orderItems.map((item) => item.productId);
+  const {
+    stockById,
+    loading: stockLoading,
+    error: stockError,
+  } = useCartStock(stockProductIds, isBuyNow || hydrated);
+  const stockCheckPending =
+    stockLoading ||
+    (stockProductIds.length > 0 &&
+      !stockError &&
+      Object.keys(stockById).length === 0);
+  const stockIssues = new Map<string, string>();
+  const totalByProduct = new Map<string, number>();
+  for (const item of orderItems) {
+    totalByProduct.set(
+      item.productId,
+      (totalByProduct.get(item.productId) ?? 0) + item.quantity,
+    );
+  }
+  if (!stockCheckPending && !stockError) {
+    orderItems.forEach((item, index) => {
+      if (stockIssues.has(item.productId)) return;
+      const stock = stockById[item.productId] ?? 0;
+      const total = totalByProduct.get(item.productId) ?? item.quantity;
+      const name = lines[index]?.name ?? "This product";
+      if (stock <= 0) {
+        stockIssues.set(
+          item.productId,
+          `${name} is out of stock. Reduce the quantity or remove it from your cart before placing the order.`,
+        );
+      } else if (total > stock) {
+        stockIssues.set(
+          item.productId,
+          `Only ${stock} left for ${name}. Reduce the quantity or remove it from your cart before placing the order.`,
+        );
+      }
+    });
+  }
 
   const update = (field: CheckoutField, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -184,6 +240,19 @@ export default function CheckoutForm({
 
     if (lines.length === 0) {
       setFormError("There is nothing to order.");
+      return;
+    }
+
+    if (stockCheckPending) {
+      setFormError("Please wait while we check current stock.");
+      return;
+    }
+    if (stockError) {
+      setFormError(stockError);
+      return;
+    }
+    if (stockIssues.size > 0) {
+      setFormError(stockIssues.values().next().value ?? "Please update your cart stock.");
       return;
     }
 
@@ -305,10 +374,30 @@ export default function CheckoutForm({
             {formError}
           </p>
         ) : null}
+        {stockCheckPending ? (
+          <p role="status" className="text-xs text-black/50">
+            Checking current stock...
+          </p>
+        ) : null}
+        {stockError ? (
+          <p role="alert" className="text-xs text-plum">
+            {stockError}
+          </p>
+        ) : null}
+        {Array.from(stockIssues.values()).map((issue) => (
+          <p key={issue} role="alert" className="text-xs text-plum">
+            {issue}
+          </p>
+        ))}
 
         <button
           type="submit"
-          disabled={pending}
+          disabled={
+            pending ||
+            stockCheckPending ||
+            stockError !== null ||
+            stockIssues.size > 0
+          }
           className="min-h-12 w-full bg-plum px-6 py-3 text-sm font-medium tracking-[0.08em] text-white uppercase transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum disabled:opacity-60 sm:w-auto sm:self-start sm:px-12"
         >
           {pending ? "Placing order..." : "Place Order"}
@@ -335,7 +424,9 @@ export default function CheckoutForm({
         <OrderSummaryCard
           lines={lines}
           subtotal={subtotal}
-          total={subtotal}
+          deliveryFee={appliedDeliveryFee}
+          showDelivery={showDelivery}
+          total={total}
           displayCurrency
         />
 
@@ -346,7 +437,7 @@ export default function CheckoutForm({
         */}
         {currency !== "PKR" ? (
           <p className="mt-3 text-xs leading-relaxed text-black/50">
-            Order will be placed and charged in PKR ({formatPkr(subtotal)})
+            Order will be placed and charged in PKR ({formatPkr(total)})
           </p>
         ) : null}
       </aside>

@@ -11,6 +11,8 @@ export type ProductListItem = {
   id: string;
   name: string;
   slug: string;
+  /** Immutable, database-generated product identifier. */
+  sku: string | null;
   /** First gallery image, used as the card thumbnail. */
   imageUrl: string | null;
   /**
@@ -20,6 +22,8 @@ export type ProductListItem = {
   secondImageUrl: string | null;
   price: number;
   discountPrice: number | null;
+  /** Shared per-product stock across all size and colour variants. */
+  stockQuantity: number;
   /** Parsed, de-duplicated sizes in display order. */
   sizes: string[];
   /** Parsed, de-duplicated colours in display order. */

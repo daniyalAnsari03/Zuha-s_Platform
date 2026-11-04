@@ -49,6 +49,7 @@ import { cn } from "@/lib/utils";
 
 type ProductDraft = {
   id: string | null;
+  sku: string | null;
   name: string;
   description: string;
   categoryId: string;
@@ -110,7 +111,11 @@ export default function ProductsManager({
     const needle = search.trim().toLowerCase();
 
     return needle
-      ? products.filter((product) => product.name.toLowerCase().includes(needle))
+      ? products.filter(
+          (product) =>
+            product.name.toLowerCase().includes(needle) ||
+            product.sku.toLowerCase().includes(needle),
+        )
       : products;
   }, [products, search]);
 
@@ -128,6 +133,7 @@ export default function ProductsManager({
   const add = () =>
     setDraft({
       id: null,
+      sku: null,
       name: "",
       description: "",
       categoryId: categories[0]?.id ?? "",
@@ -160,7 +166,7 @@ export default function ProductsManager({
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search by name"
+            placeholder="Search by name or SKU"
             className={ADMIN_INPUT_CLASS}
           />
         </AdminField>
@@ -197,12 +203,20 @@ export default function ProductsManager({
                 <Price product={product} />
               </div>
 
+              <div className="min-w-0 shrink-0 text-xs text-black/45 sm:w-24">
+                <span className="block text-[10px] tracking-[0.12em] uppercase">
+                  SKU
+                </span>
+                <span className="block break-all tabular-nums">{product.sku}</span>
+              </div>
+
               <div className="flex shrink-0 items-center gap-2">
                 <button
                   type="button"
                   onClick={() =>
                     setDraft({
                       id: product.id,
+                      sku: product.sku,
                       name: product.name,
                       description: product.description ?? "",
                       categoryId: product.categoryId ?? categories[0]?.id ?? "",
@@ -389,6 +403,19 @@ function ProductForm({
             maxLength={MAX_NAME_LENGTH}
             className={ADMIN_INPUT_CLASS}
             placeholder="Ivory Cotton Kurta"
+          />
+        </AdminField>
+
+        <AdminField
+          label="SKU"
+          htmlFor="product-sku"
+          hint="Generated automatically after saving and cannot be changed."
+        >
+          <input
+            id="product-sku"
+            value={fields.sku ?? "Auto-generated after saving"}
+            readOnly
+            className={cn(ADMIN_INPUT_CLASS, "text-black/50")}
           />
         </AdminField>
 

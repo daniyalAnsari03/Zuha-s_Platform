@@ -8,6 +8,7 @@ export type OrderLineView = {
   /** React key; stable across re-renders. */
   key: string;
   name: string;
+  sku?: string | null;
   /** First gallery image. Absent on a placed order, which snapshots no art. */
   image?: string | null;
   /** The size the shopper chose, free text as the admin typed it. */
@@ -22,6 +23,8 @@ export type OrderLineView = {
 type OrderSummaryCardProps = {
   lines: OrderLineView[];
   subtotal: number;
+  deliveryFee?: number;
+  showDelivery?: boolean;
   total: number;
   /** Hidden where the totals are already shown next to the card. */
   showTotals?: boolean;
@@ -48,6 +51,8 @@ const THUMB_SIZES = "(max-width: 639px) 3.375rem, 3.75rem";
 export default function OrderSummaryCard({
   lines,
   subtotal,
+  deliveryFee = 0,
+  showDelivery = false,
   total,
   showTotals = true,
   displayCurrency = false,
@@ -86,6 +91,11 @@ export default function OrderSummaryCard({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm leading-snug">{line.name}</p>
+                  {line.sku ? (
+                    <p className="mt-0.5 break-all text-xs text-black/45">
+                      SKU: {line.sku}
+                    </p>
+                  ) : null}
                   {line.variant || line.color ? (
                     <p className="mt-0.5 text-xs text-black/50">
                       {[line.variant ? `Size: ${line.variant}` : null, line.color ? `Color: ${line.color}` : null]
@@ -114,6 +124,12 @@ export default function OrderSummaryCard({
             <dt className="text-black/60">Subtotal</dt>
             <dd>{amountNode(subtotal)}</dd>
           </div>
+          {showDelivery ? (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-black/60">Delivery</dt>
+              <dd>{deliveryFee > 0 ? amountNode(deliveryFee) : "Free"}</dd>
+            </div>
+          ) : null}
           <div className="flex items-baseline justify-between gap-4 text-base">
             <dt className="font-medium">Total</dt>
             <dd className="font-medium text-plum">{amountNode(total)}</dd>

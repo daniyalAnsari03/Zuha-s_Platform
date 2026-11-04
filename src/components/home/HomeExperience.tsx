@@ -7,7 +7,7 @@ import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
-import type { HomeAnnouncement, HomeCategorySlide } from "@/lib/home-data";
+import type { HomeAnnouncement, HomeCategorySlide, HomeSaleSlide } from "@/lib/home-data";
 import {
   HEADER_TONE_FALLBACK,
   measureHeaderTone,
@@ -19,6 +19,8 @@ import type { StoreDetails } from "@/lib/site-config";
 
 type HomeExperienceProps = {
   categories: HomeCategorySlide[];
+  saleSlide: HomeSaleSlide | null;
+  saleVisible: boolean;
   announcements: HomeAnnouncement[];
   /** Navigation tree for the hamburger menu. */
   menuCategories: MenuCategory[];
@@ -38,6 +40,8 @@ type HomeExperienceProps = {
  */
 export default function HomeExperience({
   categories,
+  saleSlide,
+  saleVisible,
   announcements,
   menuCategories,
   details,
@@ -65,11 +69,14 @@ export default function HomeExperience({
    */
   useEffect(() => {
     const urls: (string | null)[] = [];
+    if (saleSlide) {
+      urls.push(saleSlide.imageUrl, saleSlide.mobileImageUrl);
+    }
     for (const category of categories) {
       urls.push(category.imageUrl, category.mobileImageUrl);
     }
     return prefetchHeaderTones(urls);
-  }, [categories]);
+  }, [categories, saleSlide]);
 
   useEffect(() => {
     if (!activeImageUrl) return;
@@ -95,10 +102,12 @@ export default function HomeExperience({
       <Navbar
         hidden={footerActive}
         menuCategories={menuCategories}
+        saleVisible={saleVisible}
         overlayTone={headerTone}
       />
       <CategorySlider
         categories={categories}
+        saleSlide={saleSlide}
         details={details}
         onFooterActiveChange={handleFooterActiveChange}
         onActiveImageUrlChange={handleActiveImageUrlChange}

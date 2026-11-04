@@ -13,6 +13,11 @@ import { createPublicClient } from "@/lib/supabase/public";
 
 export type { StoreDetails };
 
+export type DeliverySettings = {
+  deliveryCharge: number;
+  showDelivery: boolean;
+};
+
 const TABLE_COLUMNS =
   "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url";
 
@@ -72,6 +77,38 @@ async function getStoreDetailsInternal(): Promise<StoreDetails> {
 export const getStoreDetails = unstable_cache(
   getStoreDetailsInternal,
   ["store-details"],
+  {
+    tags: [CACHE_TAGS.storeDetails],
+    revalidate: DEFAULT_PUBLIC_REVALIDATE,
+  },
+);
+
+async function getDeliverySettingsInternal(): Promise<DeliverySettings> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("store_details")
+    .select("delivery_charge, show_delivery")
+    .eq("id", 1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Could not load delivery settings: ${error.message}`);
+  }
+  if (!data) {
+    throw new Error("Could not load delivery settings: store details are missing.");
+  }
+
+  const deliveryCharge = Number(data.delivery_charge);
+  if (!Number.isFinite(deliveryCharge) || deliveryCharge < 0) {
+    throw new Error("Could not load delivery settings: invalid delivery charge.");
+  }
+
+  return { deliveryCharge, showDelivery: data.show_delivery };
+}
+
+export const getDeliverySettings = unstable_cache(
+  getDeliverySettingsInternal,
+  ["delivery-settings"],
   {
     tags: [CACHE_TAGS.storeDetails],
     revalidate: DEFAULT_PUBLIC_REVALIDATE,

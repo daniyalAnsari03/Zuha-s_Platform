@@ -47,6 +47,7 @@ export default async function OrderConfirmationPage({
   const lines = order.items.map((item, index) => ({
     key: `${item.productSlug ?? item.productName}-${index}`,
     name: item.productName,
+    sku: item.sku,
     image: item.imageUrl,
     variant: item.variant,
     color: item.color,
@@ -114,6 +115,8 @@ export default async function OrderConfirmationPage({
               className="mt-4"
               lines={lines}
               subtotal={order.subtotal}
+              deliveryFee={order.deliveryFee}
+              showDelivery={order.showDelivery}
               total={order.total}
             />
           )}

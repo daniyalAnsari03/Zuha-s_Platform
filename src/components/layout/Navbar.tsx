@@ -56,6 +56,7 @@ type NavbarProps = {
    * so the drawer is always the live category tree, including on the homepage.
    */
   menuCategories?: MenuCategory[];
+  saleVisible?: boolean;
   /**
    * Homepage only: the colour shared by the hamburger, logo and search/login/
    * cart icons over the slides. It comes from `lib/header-tone` and changes with
@@ -101,6 +102,7 @@ export default function Navbar({
   hidden,
   variant = "overlay",
   menuCategories = [],
+  saleVisible = false,
   overlayTone = HEADER_TONE_FALLBACK,
 }: NavbarProps) {
   const reduceMotion = useReducedMotion();
@@ -251,6 +253,7 @@ export default function Navbar({
         onClose={close}
         anchorRef={headerRef}
         categories={menuCategories}
+        saleVisible={saleVisible}
       />
 
       <SearchPopup
@@ -267,6 +270,5 @@ export default function Navbar({
     </>
   );
 }
-
 
 

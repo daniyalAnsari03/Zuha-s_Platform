@@ -13,7 +13,7 @@ import {
 } from "react";
 
 import SiteFooter from "@/components/layout/SiteFooter";
-import type { HomeCategorySlide } from "@/lib/home-data";
+import type { HomeCategorySlide, HomeSaleSlide } from "@/lib/home-data";
 import { scheduleIdle } from "@/lib/idle";
 import { IMAGE_QUALITY, isVectorImage } from "@/lib/images";
 import { SLIDER_DURATION, SLIDER_EASE } from "@/lib/motion";
@@ -21,6 +21,7 @@ import type { StoreDetails } from "@/lib/site-config";
 
 type CategorySliderProps = {
   categories: HomeCategorySlide[];
+  saleSlide: HomeSaleSlide | null;
   /** Store details for the footer slide, read once on the server. */
   details: StoreDetails;
   onFooterActiveChange: (active: boolean) => void;
@@ -150,13 +151,15 @@ type SlideMotion = {
 
 function CategorySlider({
   categories,
+  saleSlide,
   details,
   onFooterActiveChange,
   onActiveImageUrlChange,
 }: CategorySliderProps) {
   const reduceMotion = useReducedMotion();
   const zoomEnabled = !useCoarsePointer();
-  const total = categories.length + 1; // category slides + the footer slide
+  const categoryOffset = saleSlide ? 1 : 0;
+  const total = categories.length + categoryOffset + 1;
   const totalRef = useRef(total);
   const indexRef = useRef(0);
   const lockedRef = useRef(false);
@@ -226,7 +229,13 @@ function CategorySlider({
    * viewport crosses that breakpoint).
    */
   useEffect(() => {
-    const category = categories[index];
+    const categoryIndex = index - categoryOffset;
+    const category =
+      index === 0 && saleSlide
+        ? saleSlide
+        : categoryIndex >= 0
+          ? categories[categoryIndex]
+          : undefined;
 
     if (!category) {
       onActiveImageUrlChange(null);
@@ -246,7 +255,7 @@ function CategorySlider({
     media.addEventListener("change", report);
 
     return () => media.removeEventListener("change", report);
-  }, [index, categories, onActiveImageUrlChange]);
+  }, [index, categories, saleSlide, categoryOffset, onActiveImageUrlChange]);
 
   const goTo = useCallback((next: number) => {
     if (lockedRef.current) return;
@@ -513,6 +522,19 @@ function CategorySlider({
     () => categories.map(({ name, slug }) => ({ name, slug })),
     [categories],
   );
+  const saleCategory = useMemo<HomeCategorySlide | null>(
+    () =>
+      saleSlide
+        ? {
+            id: "sale",
+            name: "Sale",
+            slug: "sale",
+            imageUrl: saleSlide.imageUrl,
+            mobileImageUrl: saleSlide.mobileImageUrl,
+          }
+        : null,
+    [saleSlide],
+  );
 
   /**
    * One slide's cover state. See `SlideMotion` for the model:
@@ -560,23 +582,52 @@ function CategorySlider({
       aria-roledescription="carousel"
       aria-label="Shop by category"
     >
+      {saleCategory ? (
+        <CategorySlide
+          key={saleCategory.id}
+          category={saleCategory}
+          href="/sale"
+          slideIndex={0}
+          y={slideMotion(0).y}
+          zIndex={slideMotion(0).zIndex}
+          skip={slideMotion(0).skip}
+          visible={isSlidePainted(
+            0,
+            index,
+            fromIndex,
+            slideMotion(0).skip,
+          )}
+          animating={fromIndex !== null && (index === 0 || fromIndex === 0)}
+          isActive={index === 0}
+          duration={duration}
+          zoomEnabled={zoomEnabled}
+          registerSlide={registerSlide}
+        />
+      ) : null}
+
       {categories.map((category, slideIndex) => {
-        const state = slideMotion(slideIndex);
+        const actualSlideIndex = slideIndex + categoryOffset;
+        const state = slideMotion(actualSlideIndex);
 
         return (
           <CategorySlide
             key={category.id}
             category={category}
-            slideIndex={slideIndex}
+            slideIndex={actualSlideIndex}
             y={state.y}
             zIndex={state.zIndex}
             skip={state.skip}
-            visible={isSlidePainted(slideIndex, index, fromIndex, state.skip)}
+            visible={isSlidePainted(
+              actualSlideIndex,
+              index,
+              fromIndex,
+              state.skip,
+            )}
             animating={
               fromIndex !== null &&
-              (slideIndex === index || slideIndex === fromIndex)
+              (actualSlideIndex === index || actualSlideIndex === fromIndex)
             }
-            isActive={slideIndex === index}
+            isActive={actualSlideIndex === index}
             duration={duration}
             zoomEnabled={zoomEnabled}
             registerSlide={registerSlide}
@@ -613,7 +664,11 @@ function CategorySlider({
         index={index}
         footerActive={index === total - 1}
         onSelect={goTo}
-        labels={[...categories.map((category) => category.name), "Footer"]}
+        labels={[
+          ...(saleSlide ? ["Sale"] : []),
+          ...categories.map((category) => category.name),
+          "Footer",
+        ]}
       />
     </div>
   );
@@ -644,6 +699,7 @@ export default memo(CategorySlider);
 
 type CategorySlideProps = {
   category: HomeCategorySlide;
+  href?: string;
   slideIndex: number;
   y: string;
   zIndex: number;
@@ -664,6 +720,7 @@ type CategorySlideProps = {
  */
 const CategorySlide = memo(function CategorySlide({
   category,
+  href,
   slideIndex,
   y,
   zIndex,
@@ -737,7 +794,7 @@ const CategorySlide = memo(function CategorySlide({
       </motion.div>
 
       <Link
-        href={`/category/${category.slug}`}
+        href={href ?? `/category/${category.slug}`}
         className="absolute inset-0 block"
         tabIndex={isActive ? 0 : -1}
       >

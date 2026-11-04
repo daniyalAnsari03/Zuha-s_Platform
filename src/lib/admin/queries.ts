@@ -67,6 +67,7 @@ export type AdminProduct = {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   description: string | null;
   categoryId: string | null;
   subCategoryId: string | null;
@@ -198,7 +199,7 @@ export async function listAdminProducts(
     db
       .from("products")
       .select(
-        "id, name, slug, description, category_id, sub_category_id, price, discount_price, sizes, color, stock_quantity, low_stock_threshold, images, image_colors, is_active",
+        "id, name, slug, sku, description, category_id, sub_category_id, price, discount_price, sizes, color, stock_quantity, low_stock_threshold, images, image_colors, is_active",
       )
       .order("created_at", { ascending: false })
       .range((page - 1) * perPage, page * perPage - 1),
@@ -225,6 +226,7 @@ export async function listAdminProducts(
         id: product.id,
         name: product.name,
         slug: product.slug,
+        sku: product.sku,
         description: product.description,
         categoryId: product.category_id,
         subCategoryId: product.sub_category_id,
@@ -404,6 +406,7 @@ export type AdminOrderListItem = {
 export type AdminOrderItemLine = {
   id: string;
   productName: string;
+  sku: string | null;
   /** The size the shopper chose, stored in `order_items.variant`. */
   size: string | null;
   color: string | null;
@@ -421,6 +424,7 @@ export type AdminOrderDetail = AdminOrderListItem & {
   paymentMethod: string | null;
   subtotal: number;
   shippingFee: number;
+  showDelivery: boolean;
   discount: number;
   items: AdminOrderItemLine[];
 };
@@ -530,14 +534,14 @@ export async function getAdminOrder(
       db
         .from("orders")
         .select(
-          "id, order_number, created_at, customer_name, customer_email, customer_phone, shipping_address, shipping_city, payment_method, subtotal, shipping_fee, discount, total, status",
+          "id, order_number, created_at, customer_name, customer_email, customer_phone, shipping_address, shipping_city, payment_method, subtotal, shipping_fee, show_delivery, discount, total, status",
         )
         .eq("id", id)
         .maybeSingle(),
       db
         .from("order_items")
         .select(
-          "id, product_id, product_name, variant, color, unit_price, quantity, line_total, created_at",
+          "id, product_id, product_name, sku, variant, color, unit_price, quantity, line_total, created_at",
         )
         .eq("order_id", id)
         .order("created_at", { ascending: true }),
@@ -590,12 +594,14 @@ export async function getAdminOrder(
     paymentMethod: order.payment_method,
     subtotal: Number(order.subtotal),
     shippingFee: Number(order.shipping_fee),
+    showDelivery: order.show_delivery,
     discount: Number(order.discount),
     total: Number(order.total),
     status: order.status,
     items: (itemRows ?? []).map((item) => ({
       id: item.id,
       productName: item.product_name,
+      sku: item.sku,
       size: item.variant,
       color: item.color,
       unitPrice: Number(item.unit_price),
@@ -896,7 +902,7 @@ export type AdminAnalyticsPoint = {
 };
 
 export type AdminAnalytics = {
-  /** Order totals, cancelled orders excluded. */
+  /** Product subtotal revenue, excluding delivery and cancelled orders. */
   totalSales: number;
   totalOrders: number;
   totalCustomers: number;
@@ -916,8 +922,8 @@ export type AdminAnalytics = {
  * and `order_items`.
  *
  * Two rules the spec sets are enforced here rather than in the component:
- * cancelled orders count towards nothing that is money (sales, the chart, the
- * average and the best-sellers), and days and months are grouped in the store's
+ * cancelled orders count towards nothing that is money, revenue uses the
+ * product subtotal (not the order total), and days and months are grouped in the store's
  * own time zone (Asia/Karachi) rather than the server's, so an order placed at
  * 1 a.m. local time lands on the day the shop sees it as.
  */
@@ -927,7 +933,7 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
 
   const [ordersResult, itemsResult, statusCounts, totalCustomers] =
     await Promise.all([
-      db.from("orders").select("id, created_at, total, status"),
+      db.from("orders").select("id, created_at, subtotal, status"),
       db.from("order_items").select("order_id, product_id, product_name, quantity"),
       orderStatusCounts(db),
       countCustomers(db),
@@ -948,7 +954,7 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
 
   const countedOrders = orders.filter((order) => !cancelledOrderIds.has(order.id));
   const totalSales = countedOrders.reduce(
-    (sum, order) => sum + Number(order.total),
+    (sum, order) => sum + Number(order.subtotal),
     0,
   );
 
@@ -960,10 +966,10 @@ export async function getAdminAnalytics(): Promise<AdminAnalytics> {
     if (Number.isNaN(at.getTime())) continue;
 
     const day = dayKey(at);
-    salesByDay.set(day, (salesByDay.get(day) ?? 0) + Number(order.total));
+    salesByDay.set(day, (salesByDay.get(day) ?? 0) + Number(order.subtotal));
 
     const month = day.slice(0, 7);
-    salesByMonth.set(month, (salesByMonth.get(month) ?? 0) + Number(order.total));
+    salesByMonth.set(month, (salesByMonth.get(month) ?? 0) + Number(order.subtotal));
   }
 
   // Top sellers by units, tallied per product (or per name when the product
@@ -1191,6 +1197,10 @@ export type AdminStoreDetails = {
   aedRate: string;
   /** "1 CAD = X PKR" as a string; empty means no rate. */
   cadRate: string;
+  deliveryCharge: string;
+  showDelivery: boolean;
+  saleImageUrl: string | null;
+  saleMobileImageUrl: string | null;
 };
 
 export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
@@ -1207,6 +1217,10 @@ export const EMPTY_STORE_DETAILS: AdminStoreDetails = {
   gbpRate: "",
   aedRate: "",
   cadRate: "",
+  deliveryCharge: "0",
+  showDelivery: false,
+  saleImageUrl: null,
+  saleMobileImageUrl: null,
 };
 
 /**
@@ -1221,7 +1235,7 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
   const { data, error } = await db
     .from("store_details")
     .select(
-      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url, usd_rate, eur_rate, gbp_rate, aed_rate, cad_rate",
+      "id, store_name, contact_email, phone, address, instagram_url, facebook_url, tiktok_url, whatsapp_url, usd_rate, eur_rate, gbp_rate, aed_rate, cad_rate, delivery_charge, show_delivery, sale_image_url, sale_mobile_image_url",
     )
     .eq("id", 1)
     .maybeSingle();
@@ -1231,7 +1245,7 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
 
     // The most likely cause by far: migration 010 has not been run yet.
     throw new Error(
-      `Could not load the settings: ${error.message}. Run supabase/migrations/010_store_details.sql in the Supabase SQL Editor first.`,
+      `Could not load the settings: ${error.message}. Run supabase/migrations/021_delivery_charge.sql in the Supabase SQL Editor first.`,
     );
   }
 
@@ -1251,6 +1265,10 @@ export async function getAdminStoreDetails(): Promise<AdminStoreDetails> {
     gbpRate: data.gbp_rate === null ? "" : String(data.gbp_rate),
     aedRate: data.aed_rate === null ? "" : String(data.aed_rate),
     cadRate: data.cad_rate === null ? "" : String(data.cad_rate),
+    deliveryCharge: String(data.delivery_charge),
+    showDelivery: data.show_delivery,
+    saleImageUrl: data.sale_image_url,
+    saleMobileImageUrl: data.sale_mobile_image_url,
   };
 }
 

@@ -48,6 +48,8 @@ export type Product = {
   sub_category_id: string | null;
   name: string;
   slug: string;
+  /** Immutable database-generated identifier (migration 019). */
+  sku: string;
   description: string | null;
   price: number;
   discount_price: number | null;
@@ -96,6 +98,10 @@ export type Order = {
   /** Secret required by the confirmation page. Added by migration 012. */
   confirmation_token: string | null;
   status: OrderStatus;
+  /** True while this order's quantity remains deducted from product stock. */
+  stock_deducted: boolean;
+  /** Whether the delivery row was enabled when this order was placed. */
+  show_delivery: boolean;
   customer_email: string;
   customer_name: string | null;
   customer_phone: string | null;
@@ -127,6 +133,8 @@ export type OrderItem = {
   variant: string | null;
   /** The colour chosen at checkout, free text. Added by migration 009. */
   color: string | null;
+  /** Product SKU copied at checkout (migration 019); null for older orders. */
+  sku: string | null;
   unit_price: number;
   quantity: number;
   line_total: number;
@@ -205,6 +213,14 @@ export type StoreDetails = {
   aed_rate: number | null;
   /** `1 CAD = X PKR` (migration 016). NULL hides the CAD option. */
   cad_rate: number | null;
+  /** Desktop Sale slide image (migration 018). */
+  sale_image_url: string | null;
+  /** Optional mobile Sale slide image (migration 018). */
+  sale_mobile_image_url: string | null;
+  /** Flat PKR delivery charge used by storefront checkout (migration 021). */
+  delivery_charge: number;
+  /** Whether checkout and order summaries show the delivery line (migration 021). */
+  show_delivery: boolean;
   updated_at: string;
 };
 
@@ -242,9 +258,11 @@ type Tables = {
   };
   products: {
     Row: Product;
-    Insert: Omit<Product, "id" | "created_at" | "updated_at"> &
+    Insert: Omit<Product, "id" | "created_at" | "updated_at" | "sku"> &
       Partial<Pick<Product, "id" | "created_at" | "updated_at">>;
-    Update: Partial<Omit<Product, "id" | "created_at" | "updated_at">>;
+    Update: Partial<
+      Omit<Product, "id" | "created_at" | "updated_at" | "sku">
+    >;
     Relationships: [];
   };
   customers: {
@@ -337,6 +355,41 @@ export type Database = {
       generate_order_number: {
         Args: Record<PropertyKey, never>;
         Returns: string;
+      };
+      create_order_with_stock: {
+        Args: {
+          p_order_number: string;
+          p_customer_id: string | null;
+          p_user_id: string | null;
+          p_confirmation_token: string;
+          p_customer_email: string;
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_shipping_address: string;
+          p_shipping_city: string;
+          p_shipping_method: string;
+          p_subtotal: number;
+          p_total: number;
+          p_payment_method: string;
+          p_order_items: {
+            product_id: string;
+            product_name: string;
+            product_slug: string;
+            sku: string;
+            variant: string | null;
+            color: string | null;
+            unit_price: number;
+            quantity: number;
+            line_total: number;
+          }[];
+          p_shipping_fee: number;
+          p_show_delivery: boolean;
+        };
+        Returns: string;
+      };
+      update_order_status_with_stock: {
+        Args: { p_order_id: string; p_status: OrderStatus };
+        Returns: { order_number: string; status: OrderStatus }[];
       };
     };
     Enums: Enums & { [_ in never]: never };

@@ -13,6 +13,7 @@ import {
 } from "@/lib/header-tone";
 import { getHomeAnnouncements } from "@/lib/home-data";
 import { getMenuCategories } from "@/lib/menu-data";
+import { getSaleData } from "@/lib/sale-data";
 import { getStoreDetails } from "@/lib/store-details";
 
 /**
@@ -43,10 +44,11 @@ import { getStoreDetails } from "@/lib/store-details";
 export default async function SiteLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const [categories, details, announcements] = await Promise.all([
+  const [categories, details, announcements, sale] = await Promise.all([
     getMenuCategories(),
     getStoreDetails(),
     getHomeAnnouncements(),
+    getSaleData(),
   ]);
 
   // The ticker renders nothing (no gap) when there are no announcements, so the
@@ -72,6 +74,7 @@ export default async function SiteLayout({
           variant="solid"
           hidden={false}
           menuCategories={categories}
+          saleVisible={sale.hasSaleProducts}
         />
 
         <main

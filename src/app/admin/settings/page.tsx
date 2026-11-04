@@ -7,8 +7,8 @@ import {
 } from "@/lib/admin/queries";
 
 /**
- * Settings: the public contact details and social links the footer and the
- * contact page render, plus the four public policy pages.
+ * Settings: public store details, the optional homepage Sale slide images,
+ * and the four public policy pages.
  *
  * The contact details come from the single `store_details` row — never the
  * `settings` table, which holds the admin allowlist and is admin-only readable

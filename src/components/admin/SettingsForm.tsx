@@ -9,9 +9,14 @@ import {
   AdminField,
   AdminSectionTitle,
 } from "@/components/admin/admin-fields";
+import { ImageUpload } from "@/components/admin/ImageUpload";
 import { saveStoreDetails, type StoreDetailsInput } from "@/lib/admin/settings";
 import type { AdminStoreDetails } from "@/lib/admin/queries";
-import { MAX_CURRENCY_RATE, MAX_LINE_LENGTH } from "@/lib/admin/validation";
+import {
+  MAX_CURRENCY_RATE,
+  MAX_DELIVERY_CHARGE,
+  MAX_LINE_LENGTH,
+} from "@/lib/admin/validation";
 
 /**
  * The supported display currencies, in switcher order. PKR is the base and has
@@ -19,7 +24,12 @@ import { MAX_CURRENCY_RATE, MAX_LINE_LENGTH } from "@/lib/admin/validation";
  */
 const RATE_FIELDS: {
   code: string;
-  field: keyof StoreDetailsInput;
+  field:
+    | "usdRate"
+    | "eurRate"
+    | "gbpRate"
+    | "aedRate"
+    | "cadRate";
   placeholder: string;
 }[] = [
   { code: "USD", field: "usdRate", placeholder: "e.g. 280" },
@@ -48,6 +58,10 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
     message: string;
   } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [uploadingImages, setUploadingImages] = useState({
+    desktop: false,
+    mobile: false,
+  });
 
   const set = (field: keyof StoreDetailsInput) =>
     (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -55,9 +69,15 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
       setStatus(null);
     };
 
+  const setImage = (field: "saleImageUrl" | "saleMobileImageUrl") =>
+    (value: string | null) => {
+      setValues((current) => ({ ...current, [field]: value }));
+      setStatus(null);
+    };
+
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    if (pending) return;
+    if (pending || uploadingImages.desktop || uploadingImages.mobile) return;
 
     setStatus(null);
 
@@ -94,6 +114,39 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
       </section>
 
       <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">
+        <AdminSectionTitle>Sale Slide</AdminSectionTitle>
+
+        <p className="text-xs text-black/45">
+          The homepage shows this slide only while discounted products are
+          available. Mobile uses its own image when set, otherwise the desktop
+          image.
+        </p>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <ImageUpload
+            label="Desktop Image"
+            value={values.saleImageUrl}
+            onChange={setImage("saleImageUrl")}
+            folder="sale"
+            hint="Required to show the Sale slide."
+            onBusyChange={(busy) =>
+              setUploadingImages((current) => ({ ...current, desktop: busy }))
+            }
+          />
+
+          <ImageUpload
+            label="Mobile Image (optional)"
+            value={values.saleMobileImageUrl}
+            onChange={setImage("saleMobileImageUrl")}
+            folder="sale"
+            onBusyChange={(busy) =>
+              setUploadingImages((current) => ({ ...current, mobile: busy }))
+            }
+          />
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">
         <AdminSectionTitle>Currency</AdminSectionTitle>
 
         <p className="text-xs text-black/45">
@@ -124,6 +177,53 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
               />
             </AdminField>
           ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-5 border border-black/10 p-4 sm:p-5">
+        <AdminSectionTitle>Delivery</AdminSectionTitle>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          <AdminField
+            label="Delivery charge (Rs.)"
+            htmlFor="delivery-charge"
+            hint="Enter 0 or leave empty for free delivery. Maximum Rs. 100,000."
+          >
+            <input
+              id="delivery-charge"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={MAX_DELIVERY_CHARGE}
+              step="0.01"
+              value={values.deliveryCharge}
+              onChange={set("deliveryCharge")}
+              className={ADMIN_INPUT_CLASS}
+              placeholder="0"
+            />
+          </AdminField>
+
+          <div className="flex items-start pt-1">
+            <label
+              htmlFor="show-delivery"
+              className="flex min-h-11 cursor-pointer items-center gap-3 text-sm"
+            >
+              <input
+                id="show-delivery"
+                type="checkbox"
+                checked={values.showDelivery}
+                onChange={(event) => {
+                  setValues((current) => ({
+                    ...current,
+                    showDelivery: event.target.checked,
+                  }));
+                  setStatus(null);
+                }}
+                className="h-5 w-5 accent-plum"
+              />
+              <span>Show delivery in order summary</span>
+            </label>
+          </div>
         </div>
       </section>
 
@@ -246,10 +346,16 @@ export default function SettingsForm({ initial }: { initial: AdminStoreDetails }
       <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"
-          disabled={pending}
+          disabled={
+            pending || uploadingImages.desktop || uploadingImages.mobile
+          }
           className={ADMIN_PRIMARY_BUTTON_CLASS}
         >
-          {pending ? "Saving..." : "Save settings"}
+          {pending
+            ? "Saving..."
+            : uploadingImages.desktop || uploadingImages.mobile
+              ? "Uploading..."
+              : "Save settings"}
         </button>
 
         <div className="min-w-0 flex-1">

@@ -63,8 +63,10 @@ function fromDatabaseRow(row: {
   id: string;
   name: string;
   slug: string;
+  sku: string | null;
   price: number;
   discount_price: number | null;
+  stock_quantity: number | null;
   sizes: string | null;
   color: string | null;
   images: string[] | null;
@@ -74,11 +76,13 @@ function fromDatabaseRow(row: {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    sku: row.sku,
     imageUrl: row.images?.[0] ?? null,
     secondImageUrl: row.images?.[1] ?? null,
     price: Number(row.price),
     discountPrice:
       row.discount_price === null ? null : Number(row.discount_price),
+    stockQuantity: Math.max(0, Number(row.stock_quantity ?? 0)),
     sizes: parseOptionList(row.sizes),
     colors: parseOptionList(row.color),
     createdAt: row.created_at,
@@ -95,9 +99,11 @@ export type ProductDetail = {
   id: string;
   name: string;
   slug: string;
+  sku: string | null;
   description: string | null;
   price: number;
   discountPrice: number | null;
+  stockQuantity: number;
   sizes: string[];
   colors: string[];
   images: string[];
@@ -122,8 +128,10 @@ type ProductRow = {
   id: string;
   name: string;
   slug: string;
+  sku: string | null;
   price: number;
   discount_price: number | null;
+  stock_quantity: number | null;
   sizes: string | null;
   color: string | null;
   images: string[] | null;
@@ -136,10 +144,16 @@ type ProductRow = {
  * which is what keeps the generated Supabase row types intact.
  */
 const PRODUCT_COLUMNS =
-  "id, name, slug, price, discount_price, sizes, color, images, created_at";
+  "id, name, slug, sku, price, discount_price, stock_quantity, sizes, color, images, created_at";
 
 const PRODUCT_COLUMNS_WITHOUT_COLOR =
-  "id, name, slug, price, discount_price, sizes, images, created_at";
+  "id, name, slug, sku, price, discount_price, stock_quantity, sizes, images, created_at";
+
+const PRODUCT_COLUMNS_WITHOUT_SKU =
+  "id, name, slug, price, discount_price, stock_quantity, sizes, color, images, created_at";
+
+const PRODUCT_COLUMNS_WITHOUT_SKU_OR_COLOR =
+  "id, name, slug, price, discount_price, stock_quantity, sizes, images, created_at";
 
 type ResolvedScope =
   | {
@@ -246,6 +260,55 @@ async function selectProductRows(
 
   if (!withColor.error) return withColor.data ?? [];
 
+  if (isMissingSkuColumnError(withColor.error)) {
+    const baseQueryWithoutSku = () =>
+      supabase.from("products").select(PRODUCT_COLUMNS_WITHOUT_SKU);
+    const withoutSku = await (scope.kind === "sub-category"
+      ? baseQueryWithoutSku().eq("sub_category_id", scope.subCategoryId)
+      : baseQueryWithoutSku().eq("category_id", scope.categoryId)
+    )
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (!withoutSku.error) {
+      console.warn(
+        "[product-data] products.sku is missing; apply supabase/migrations/019_product_sku.sql to enable product SKUs.",
+      );
+      return (withoutSku.data ?? []).map((row) => ({ ...row, sku: null }));
+    }
+
+    if (!isMissingColorColumnError(withoutSku.error)) {
+      logQueryFailure(`products query without sku failed for ${scope.title}.`, withoutSku.error);
+      throw withoutSku.error;
+    }
+
+    const baseQueryWithoutSkuOrColor = () =>
+      supabase.from("products").select(PRODUCT_COLUMNS_WITHOUT_SKU_OR_COLOR);
+    const withoutSkuOrColor = await (scope.kind === "sub-category"
+      ? baseQueryWithoutSkuOrColor().eq("sub_category_id", scope.subCategoryId)
+      : baseQueryWithoutSkuOrColor().eq("category_id", scope.categoryId)
+    )
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (withoutSkuOrColor.error) {
+      logQueryFailure(
+        `products query without sku and color failed for ${scope.title}.`,
+        withoutSkuOrColor.error,
+      );
+      throw withoutSkuOrColor.error;
+    }
+
+    console.warn(
+      "[product-data] products.sku and products.color are missing; apply supabase/migrations/019_product_sku.sql and 004_add_product_color.sql.",
+    );
+    return (withoutSkuOrColor.data ?? []).map((row) => ({
+      ...row,
+      color: null,
+      sku: null,
+    }));
+  }
+
   if (!isMissingColorColumnError(withColor.error)) {
     logQueryFailure(
       `products query failed for ${scope.title}.`,
@@ -264,6 +327,32 @@ async function selectProductRows(
     .eq("is_active", true)
     .order("created_at", { ascending: false });
 
+  console.warn(
+    "[product-data] products.color is missing; apply supabase/migrations/004_add_product_color.sql to enable colour filters.",
+  );
+
+  if (withoutColor.error && isMissingSkuColumnError(withoutColor.error)) {
+    const baseQueryWithoutSkuOrColor = () =>
+      supabase.from("products").select(PRODUCT_COLUMNS_WITHOUT_SKU_OR_COLOR);
+    const withoutSkuOrColor = await (scope.kind === "sub-category"
+      ? baseQueryWithoutSkuOrColor().eq("sub_category_id", scope.subCategoryId)
+      : baseQueryWithoutSkuOrColor().eq("category_id", scope.categoryId)
+    )
+      .eq("is_active", true)
+      .order("created_at", { ascending: false });
+
+    if (withoutSkuOrColor.error) {
+      logQueryFailure("products query without sku and color failed.", withoutSkuOrColor.error);
+      throw withoutSkuOrColor.error;
+    }
+
+    return (withoutSkuOrColor.data ?? []).map((row) => ({
+      ...row,
+      color: null,
+      sku: null,
+    }));
+  }
+
   if (withoutColor.error) {
     logQueryFailure(
       "the products query without the color column failed too; apply supabase/migrations/004_add_product_color.sql.",
@@ -271,10 +360,6 @@ async function selectProductRows(
     );
     throw withoutColor.error;
   }
-
-  console.warn(
-    "[product-data] products.color is missing; apply supabase/migrations/004_add_product_color.sql to enable colour filters.",
-  );
 
   return (withoutColor.data ?? []).map((row) => ({ ...row, color: null }));
 }
@@ -288,10 +373,22 @@ async function selectProductRows(
  * below simply drops them one at a time.
  */
 function isMissingColorColumnError(error: { code?: string; message?: string }) {
-  if (error.code === "42703" || error.code === "PGRST204") return true;
-
   const message = error.message ?? "";
-  return /color/i.test(message) && /(column|does not exist|not found)/i.test(message);
+  return (
+    (error.code === "42703" || error.code === "PGRST204") &&
+    /color/i.test(message) &&
+    /(column|does not exist|not found)/i.test(message)
+  );
+}
+
+function isMissingSkuColumnError(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  return (
+    (error.code === "42703" || error.code === "PGRST204") &&
+    /sku/i.test(error.message ?? "")
+  );
 }
 
 async function loadProductListing(
@@ -328,9 +425,11 @@ type ProductDetailRow = {
   id: string;
   name: string;
   slug: string;
+  sku?: string | null;
   description: string | null;
   price: number;
   discount_price: number | null;
+  stock_quantity: number | null;
   sizes: string | null;
   /** Absent when migration 004 has not been applied yet. */
   color?: string | null;
@@ -368,9 +467,11 @@ function fromDatabaseDetailRow(row: ProductDetailRow): ProductDetail {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    sku: row.sku ?? null,
     description: row.description ?? null,
     price: Number(row.price),
     discountPrice: row.discount_price === null ? null : Number(row.discount_price),
+    stockQuantity: Math.max(0, Number(row.stock_quantity ?? 0)),
     sizes: parseOptionList(row.sizes),
     colors: parseOptionList(row.color),
     images: gallery.map((entry) => entry.url),
@@ -384,73 +485,74 @@ function fromDatabaseDetailRow(row: ProductDetailRow): ProductDetail {
 async function loadProductBySlug(slug: string): Promise<ProductDetail | null> {
   try {
     const supabase = createPublicClient();
+    let includeSku = true;
+    let includeColor = true;
+    let includeImageColors = true;
 
-    // Three column shapes, because both colour columns are optional: `color`
-    // (migration 004) and `image_colors` (migration 017) may each not exist
-    // yet. Only an unknown-column failure falls through to the next shape;
-    // any other failure is logged and rethrown, so a real error is never
-    // hidden behind a fallback.
-    const withBoth = await supabase
-      .from("products")
-      .select(
-        "id, name, slug, description, price, discount_price, sizes, color, images, image_colors, created_at, category:categories(id, slug, name), sub_category:sub_categories(id, slug, name)",
-      )
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .maybeSingle();
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const columns = [
+        "id",
+        "name",
+        "slug",
+        ...(includeSku ? ["sku"] : []),
+        "description",
+        "price",
+        "discount_price",
+        "stock_quantity",
+        "sizes",
+        ...(includeColor ? ["color"] : []),
+        "images",
+        ...(includeImageColors ? ["image_colors"] : []),
+        "created_at",
+        "category:categories(id, slug, name)",
+        "sub_category:sub_categories(id, slug, name)",
+      ].join(", ");
 
-    if (!withBoth.error) {
-      return withBoth.data ? fromDatabaseDetailRow(withBoth.data) : null;
+      const { data, error } = await supabase
+        .from("products")
+        .select(columns)
+        .eq("slug", slug)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (!error) {
+        if (!includeSku) {
+          console.warn(
+            "[product-data] products.sku is missing; apply supabase/migrations/019_product_sku.sql to enable product SKUs.",
+          );
+        }
+        if (!includeColor || !includeImageColors) {
+          console.warn(
+            "[product-data] product colour columns are missing; apply supabase/migrations/004_add_product_color.sql and 017_product_image_color.sql.",
+          );
+        }
+        return data
+          ? fromDatabaseDetailRow(data as unknown as ProductDetailRow)
+          : null;
+      }
+
+      if (includeSku && isMissingSkuColumnError(error)) {
+        includeSku = false;
+        continue;
+      }
+
+      if (isMissingColorColumnError(error) && includeImageColors) {
+        includeImageColors = false;
+        continue;
+      }
+
+      if (isMissingColorColumnError(error) && includeColor) {
+        includeColor = false;
+        continue;
+      }
+
+      logQueryFailure(`product detail query failed for "${slug}".`, error);
+      throw error;
     }
 
-    if (!isMissingColorColumnError(withBoth.error)) {
-      logQueryFailure(`product detail query failed for "${slug}".`, withBoth.error);
-      throw withBoth.error;
-    }
-
-    const withColor = await supabase
-      .from("products")
-      .select(
-        "id, name, slug, description, price, discount_price, sizes, color, images, created_at, category:categories(id, slug, name), sub_category:sub_categories(id, slug, name)",
-      )
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (!withColor.error) {
-      console.warn(
-        "[product-data] products.image_colors is missing; apply supabase/migrations/017_product_image_color.sql to enable colour-to-image jumps.",
-      );
-      return withColor.data ? fromDatabaseDetailRow(withColor.data) : null;
-    }
-
-    if (!isMissingColorColumnError(withColor.error)) {
-      logQueryFailure(`product detail query failed for "${slug}".`, withColor.error);
-      throw withColor.error;
-    }
-
-    const withoutColor = await supabase
-      .from("products")
-      .select(
-        "id, name, slug, description, price, discount_price, sizes, images, created_at, category:categories(id, slug, name), sub_category:sub_categories(id, slug, name)",
-      )
-      .eq("slug", slug)
-      .eq("is_active", true)
-      .maybeSingle();
-
-    if (withoutColor.error) {
-      logQueryFailure(
-        `product detail query failed for "${slug}"; apply supabase/migrations/004_add_product_color.sql and 017_product_image_color.sql.`,
-        withoutColor.error,
-      );
-      throw withoutColor.error;
-    }
-
-    console.warn(
-      "[product-data] products.color and products.image_colors are missing; apply supabase/migrations/004_add_product_color.sql and 017_product_image_color.sql.",
+    throw new Error(
+      `[product-data] could not resolve product columns for "${slug}".`,
     );
-
-    return withoutColor.data ? fromDatabaseDetailRow(withoutColor.data) : null;
   } catch (error) {
     logQueryFailure(`product detail fetch threw for "${slug}".`, error);
     throw error;

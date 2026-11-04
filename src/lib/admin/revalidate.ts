@@ -44,6 +44,7 @@ export function revalidateStorefront(affected: {
   revalidatePath("/category/[slug]/[subSlug]", "page");
   revalidatePath("/product/[slug]", "page");
   revalidatePath("/team");
+  revalidatePath("/sale");
 
   for (const slug of affected.categorySlugs ?? []) {
     revalidatePath(`/category/${slug}`);
@@ -68,4 +69,5 @@ export function revalidateStorefront(affected: {
   expireCacheTag(CACHE_TAGS.announcements);
   expireCacheTag(CACHE_TAGS.team);
   expireCacheTag(CACHE_TAGS.storeDetails);
+  expireCacheTag(CACHE_TAGS.sale);
 }

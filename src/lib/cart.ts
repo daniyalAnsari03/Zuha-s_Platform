@@ -6,6 +6,8 @@
 export type CartItem = {
   productId: string;
   name: string;
+  /** Immutable SKU captured when the product was added to the cart. */
+  sku?: string | null;
   /** First gallery image, used as the thumbnail in the cart popup. */
   image: string | null;
   /**
@@ -14,6 +16,8 @@ export type CartItem = {
    * catalog.
    */
   price: number;
+  /** Last known shared product stock; refreshed when the cart is viewed. */
+  stockQuantity?: number;
   /** Null for products the admin left without sizes. */
   size: string | null;
   /**
@@ -42,6 +46,15 @@ export function cartItemKey(
 /** Total units in the cart; this is what the navbar badge shows. */
 export function cartItemCount(items: CartItem[]): number {
   return items.reduce((total, item) => total + item.quantity, 0);
+}
+
+/** Total units of a product across every size and colour line. */
+export function cartProductQuantity(items: CartItem[], productId: string): number {
+  return items.reduce(
+    (total, item) =>
+      item.productId === productId ? total + item.quantity : total,
+    0,
+  );
 }
 
 /** Sum of `price x quantity` for every line. */
@@ -77,6 +90,15 @@ export function isCartItemArray(value: unknown): value is CartItem[] {
     // `color` was added after the first carts were saved, so its absence is
     // accepted; a colour that is neither text nor null is not.
     const color = (entry as CartItem).color;
-    return color === undefined || color === null || typeof color === "string";
+    const sku = (entry as CartItem).sku;
+    const stockQuantity = (entry as CartItem).stockQuantity;
+    return (
+      (color === undefined || color === null || typeof color === "string") &&
+      (sku === undefined || sku === null || typeof sku === "string") &&
+      (stockQuantity === undefined ||
+        (isFiniteNumber(stockQuantity) &&
+          Number.isInteger(stockQuantity) &&
+          stockQuantity >= 0))
+    );
   });
 }

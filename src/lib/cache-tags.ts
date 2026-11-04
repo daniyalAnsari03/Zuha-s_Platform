@@ -8,6 +8,7 @@ export const CACHE_TAGS = {
   announcements: "announcements",
   team: "team",
   storeDetails: "store-details",
+  sale: "sale",
   policies: "store-policies",
   policy: (slug: string) => `policy:${slug}`,
   menu: "menu",

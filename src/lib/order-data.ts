@@ -27,6 +27,8 @@ import type { Database } from "@/types/database";
 export type OrderLine = {
   productName: string;
   productSlug: string | null;
+  /** SKU snapshotted at checkout, independent of later product deletion. */
+  sku: string | null;
   /**
    * Snapshot of the product's current first gallery image, resolved at read
    * time so a placed order — which snapshots no art — can show a thumbnail for
@@ -47,6 +49,8 @@ export type OrderSummary = {
   status: OrderStatus;
   createdAt: string;
   subtotal: number;
+  deliveryFee: number;
+  showDelivery: boolean;
   total: number;
   items: OrderLine[];
 };
@@ -80,6 +84,7 @@ export type CustomerOrderDetail = OrderSummary & {
 type ItemRow = {
   product_name: string;
   product_slug: string | null;
+  sku: string | null;
   variant: string | null;
   color: string | null;
   quantity: number;
@@ -88,12 +93,13 @@ type ItemRow = {
 };
 
 const ITEM_COLUMNS =
-  "product_name, product_slug, variant, color, quantity, unit_price, line_total";
+  "product_name, product_slug, sku, variant, color, quantity, unit_price, line_total";
 
 function toLines(rows: ItemRow[] | null): OrderLine[] {
   return (rows ?? []).map((row) => ({
     productName: row.product_name,
     productSlug: row.product_slug,
+    sku: row.sku,
     imageUrl: null,
     variant: row.variant,
     color: row.color,
@@ -178,7 +184,7 @@ export async function getOrderConfirmation(
   const { data: order, error } = await admin
     .from("orders")
     .select(
-      "id, order_number, status, created_at, subtotal, total, confirmation_token",
+      "id, order_number, status, created_at, subtotal, shipping_fee, show_delivery, total, confirmation_token",
     )
     .eq("order_number", orderNumber)
     .maybeSingle();
@@ -198,6 +204,8 @@ export async function getOrderConfirmation(
     status: toStatus(order.status),
     createdAt: order.created_at,
     subtotal: Number(order.subtotal),
+    deliveryFee: Number(order.shipping_fee),
+    showDelivery: order.show_delivery,
     total: Number(order.total),
     items: await attachImages(toLines(items), admin),
   };
@@ -254,7 +262,7 @@ export async function getCustomerOrderDetail(
   const { data: order } = await supabase
     .from("orders")
     .select(
-      "id, order_number, status, created_at, subtotal, total, customer_name, customer_email, customer_phone, shipping_address, shipping_city, user_id",
+      "id, order_number, status, created_at, subtotal, shipping_fee, show_delivery, total, customer_name, customer_email, customer_phone, shipping_address, shipping_city, user_id",
     )
     .eq("order_number", orderNumber)
     .eq("user_id", user.id)
@@ -273,6 +281,8 @@ export async function getCustomerOrderDetail(
     status: toStatus(order.status),
     createdAt: order.created_at,
     subtotal: Number(order.subtotal),
+    deliveryFee: Number(order.shipping_fee),
+    showDelivery: order.show_delivery,
     total: Number(order.total),
     items: await attachImages(toLines(items), supabase),
     customerName: order.customer_name,

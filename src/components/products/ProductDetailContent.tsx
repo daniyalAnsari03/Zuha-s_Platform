@@ -11,6 +11,7 @@ import FormattedDescription from "@/components/products/FormattedDescription";
 import FadeInImage from "@/components/ui/FadeInImage";
 import PopOnChange from "@/components/ui/PopOnChange";
 import { useWishlist } from "@/components/wishlist/WishlistProvider";
+import { cartProductQuantity } from "@/lib/cart";
 import { IMAGE_QUALITY } from "@/lib/images";
 import {
   discountPercent,
@@ -73,9 +74,11 @@ export type ProductDetailData = {
   id: string;
   name: string;
   slug: string;
+  sku: string | null;
   description: string | null;
   price: number;
   discountPrice: number | null;
+  stockQuantity: number;
   sizes: string[];
   colors: string[];
   images: string[];
@@ -110,7 +113,7 @@ export default function ProductDetailContent({
   isModal = false,
 }: ProductDetailContentProps) {
   const router = useRouter();
-  const { addItem } = useCart();
+  const { items: cartItems, addItem, hydrated: cartHydrated } = useCart();
   const { isSaved, toggle } = useWishlist();
   const addedTimerRef = useRef<number | undefined>(undefined);
 
@@ -187,6 +190,14 @@ export default function ProductDetailContent({
   const needsSize = product.sizes.length > 0;
   const needsColor = product.colors.length > 0;
   const saved = isSaved(product.id);
+  const stockQuantity = Math.max(0, product.stockQuantity);
+  const remainingStock = Math.max(
+    0,
+    stockQuantity - cartProductQuantity(cartItems, product.id),
+  );
+  const canPurchase =
+    cartHydrated && stockQuantity > 0 && remainingStock > 0;
+  const purchaseQuantity = Math.min(quantity, Math.max(1, remainingStock));
 
   /**
    * Every option the product offers has to be chosen before it can be bought.
@@ -204,6 +215,8 @@ export default function ProductDetailContent({
   };
 
   const handleBuyNow = () => {
+    if (!canPurchase) return;
+
     // Checkout resolves the product from this slug on the server, so a product
     // the admin gave sizes or colours to has to arrive with one — same rule as
     // Add to Cart.
@@ -211,7 +224,7 @@ export default function ProductDetailContent({
 
     const params = new URLSearchParams();
     params.set("product", product.slug);
-    params.set("qty", quantity.toString());
+    params.set("qty", purchaseQuantity.toString());
     if (selectedSize) {
       params.set("size", selectedSize);
     }
@@ -223,16 +236,19 @@ export default function ProductDetailContent({
   };
 
   const handleAddToCart = () => {
+    if (!canPurchase) return;
     if (!selectionReady()) return;
 
     addItem({
       productId: product.id,
       name: product.name,
+      sku: product.sku,
       image: images[0] ?? null,
       price: effectivePrice(product),
+      stockQuantity,
       size: selectedSize,
       color: selectedColor,
-      quantity,
+      quantity: purchaseQuantity,
     });
 
     setAdded(true);
@@ -503,9 +519,16 @@ export default function ProductDetailContent({
       >
         <div>
           <div className="flex items-start justify-between gap-4">
-            <h1 className="text-2xl leading-tight sm:text-3xl lg:text-4xl">
-              {product.name}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="break-words text-2xl leading-tight sm:text-3xl lg:text-4xl [overflow-wrap:anywhere]">
+                {product.name}
+              </h1>
+              {product.sku ? (
+                <p className="mt-1 break-all text-xs text-black/45">
+                  SKU: {product.sku}
+                </p>
+              ) : null}
+            </div>
 
             <button
               type="button"
@@ -551,6 +574,13 @@ export default function ProductDetailContent({
               />
             )}
           </p>
+          {stockQuantity === 0 ? (
+            <p className="mt-2 text-sm font-medium text-plum">Out of Stock</p>
+          ) : remainingStock === 0 ? (
+            <p className="mt-2 text-sm text-black/60">
+              All available stock is already in your cart.
+            </p>
+          ) : null}
         </div>
 
         {product.description ? (
@@ -631,19 +661,32 @@ export default function ProductDetailContent({
           <div className="flex w-fit items-center border border-black/10">
             <button
               type="button"
-              onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-              className="flex h-11 w-11 items-center justify-center text-lg transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+              onClick={() =>
+                setQuantity((q) =>
+                  Math.max(1, Math.min(q, Math.max(1, remainingStock)) - 1),
+                )
+              }
+              disabled={quantity <= 1}
+              className="flex h-11 w-11 items-center justify-center text-lg transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Decrease quantity"
             >
               -
             </button>
             <span className="flex h-11 min-w-[3rem] items-center justify-center px-2 text-sm">
-              {quantity}
+              {purchaseQuantity}
             </span>
             <button
               type="button"
-              onClick={() => setQuantity((q) => q + 1)}
-              className="flex h-11 w-11 items-center justify-center text-lg transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+              onClick={() =>
+                setQuantity((q) =>
+                  Math.min(
+                    remainingStock,
+                    Math.min(q, remainingStock) + 1,
+                  ),
+                )
+              }
+              disabled={!canPurchase || quantity >= remainingStock}
+              className="flex h-11 w-11 items-center justify-center text-lg transition-colors hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum disabled:cursor-not-allowed disabled:opacity-40"
               aria-label="Increase quantity"
             >
               +
@@ -656,20 +699,22 @@ export default function ProductDetailContent({
             <button
               type="button"
               onClick={handleAddToCart}
-              className="min-h-11 flex-1 bg-plum px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+              disabled={!canPurchase}
+              className="min-h-11 flex-1 bg-plum px-6 py-2.5 text-sm font-medium text-white transition-colors hover:bg-plum-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Add to Cart
+              {stockQuantity === 0 ? "Out of Stock" : "Add to Cart"}
             </button>
             <button
               type="button"
               onClick={handleBuyNow}
+              disabled={!canPurchase}
               className={cn(
-                "group relative min-h-11 flex-1 overflow-hidden border border-plum bg-white px-6 py-2.5 text-sm font-medium text-plum",
+                "group relative min-h-11 flex-1 overflow-hidden border border-plum bg-white px-6 py-2.5 text-sm font-medium text-plum disabled:cursor-not-allowed disabled:opacity-50",
                 "transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum",
               )}
             >
               <span className="relative z-10 transition-colors group-active:text-white [@media(hover:hover)_and_(pointer:fine)]:group-hover:text-white">
-                Buy It Now
+                {stockQuantity === 0 ? "Out of Stock" : "Buy It Now"}
               </span>
               <span className="absolute inset-0 z-0 origin-bottom scale-y-0 bg-plum transition-transform duration-200 ease-[var(--motion-ease)] group-active:scale-y-100 [@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-y-100" />
             </button>

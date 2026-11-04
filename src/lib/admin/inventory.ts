@@ -51,6 +51,7 @@ export async function updateInventoryRow(
 
   revalidatePath("/admin/products");
   revalidatePath("/admin/inventory");
+  revalidatePath("/admin");
   revalidateStorefront({
     productSlugs: [updated.slug],
   });

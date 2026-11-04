@@ -26,17 +26,19 @@ import { createClient } from "@/lib/supabase/client";
  * server-side loader takes.
  */
 const PRODUCT_CARD_COLUMNS =
-  "id, name, slug, price, discount_price, sizes, color, images, created_at";
+  "id, name, slug, sku, price, discount_price, stock_quantity, sizes, color, images, created_at";
 
 const PRODUCT_CARD_COLUMNS_WITHOUT_COLOR =
-  "id, name, slug, price, discount_price, sizes, images, created_at";
+  "id, name, slug, sku, price, discount_price, stock_quantity, sizes, images, created_at";
 
 type ProductRow = {
   id: string;
   name: string;
   slug: string;
+  sku: string;
   price: number;
   discount_price: number | null;
+  stock_quantity: number | null;
   sizes: string | null;
   color?: string | null;
   images: string[] | null;
@@ -48,10 +50,12 @@ function toListItem(row: ProductRow): ProductListItem {
     id: row.id,
     name: row.name,
     slug: row.slug,
+    sku: row.sku,
     imageUrl: row.images?.[0] ?? null,
     secondImageUrl: row.images?.[1] ?? null,
     price: Number(row.price),
     discountPrice: row.discount_price === null ? null : Number(row.discount_price),
+    stockQuantity: Math.max(0, Number(row.stock_quantity ?? 0)),
     sizes: parseOptionList(row.sizes),
     colors: parseOptionList(row.color),
     createdAt: row.created_at,
