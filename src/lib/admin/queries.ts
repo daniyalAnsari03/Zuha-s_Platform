@@ -1178,6 +1178,100 @@ export async function listAdminTeamMembers(
   };
 }
 
+export type HomeSlidePlacement = "first" | "after_sale" | "after_categories";
+
+export type AdminHomeSlide = {
+  id: string;
+  desktopImageUrl: string;
+  mobileImageUrl: string | null;
+  placement: HomeSlidePlacement;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+};
+
+export type AdminHomeSlidesListParams = {
+  page?: number;
+  perPage?: number;
+};
+
+type HomeSlidesPageData = {
+  slides: AdminHomeSlide[];
+  total: number;
+  totalPages: number;
+  currentPage: number;
+};
+
+/** The placement groups in the order the homepage stack shows them. */
+const HOME_PLACEMENT_ORDER: Record<HomeSlidePlacement, number> = {
+  first: 0,
+  after_sale: 1,
+  after_categories: 2,
+};
+
+/**
+ * Home slides in the order the homepage stack shows them — placement groups
+ * first/after_sale/after_categories, then each group's own sort_order.
+ *
+ * There are never many rows, so the full list is read once and paginated in
+ * JavaScript: `sort_order` only orders inside a placement group, which the
+ * database cannot express as one ORDER BY across the three groups.
+ */
+export async function listAdminHomeSlides(
+  params: AdminHomeSlidesListParams = {},
+): Promise<HomeSlidesPageData> {
+  await requireAdmin();
+  const db = getAdminDb();
+  const page = params.page ?? 1;
+  const perPage = params.perPage ?? 20;
+
+  const { data, error } = await db
+    .from("home_slides")
+    .select(
+      "id, desktop_image_url, mobile_image_url, placement, sort_order, is_active, created_at",
+    );
+
+  if (error) {
+    console.error("[admin] could not read the home slides.", error.message);
+    throw new Error(
+      `Could not load the home slides: ${error.message}. Run supabase/migrations/022_home_slides.sql in the Supabase SQL Editor first.`,
+    );
+  }
+
+  const slides = (data ?? [])
+    .filter(
+      (slide): slide is typeof slide & { placement: HomeSlidePlacement } =>
+        slide.placement === "first" ||
+        slide.placement === "after_sale" ||
+        slide.placement === "after_categories",
+    )
+    .sort(
+      (a, b) =>
+        HOME_PLACEMENT_ORDER[a.placement] - HOME_PLACEMENT_ORDER[b.placement] ||
+        a.sort_order - b.sort_order,
+    )
+    .map((slide) => ({
+      id: slide.id,
+      desktopImageUrl: slide.desktop_image_url,
+      mobileImageUrl: slide.mobile_image_url,
+      placement: slide.placement,
+      sortOrder: slide.sort_order,
+      isActive: slide.is_active,
+      createdAt: slide.created_at,
+    }));
+
+  const total = slides.length;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+
+  return {
+    slides: slides.slice((currentPage - 1) * perPage, currentPage * perPage),
+    total,
+    totalPages,
+    currentPage,
+  };
+}
+
 export type AdminStoreDetails = {
   storeName: string;
   contactEmail: string;

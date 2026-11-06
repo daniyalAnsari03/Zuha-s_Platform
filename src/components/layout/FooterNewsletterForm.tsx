@@ -1,10 +1,8 @@
 "use client";
 
-import { ChevronRightIcon } from "@/components/icons";
-
 /**
- * The footer's newsletter field: one bordered email input with an arrow
- * submit button on the right.
+ * The footer's newsletter field: a transparent email input with a 0.5px white
+ * underline and an arrow submit at the right end of the same line.
  *
  * Deliberately UI only — there is no endpoint, no Supabase table, no API call
  * and no validation logic anywhere in this component. Submitting only stops
@@ -32,7 +30,7 @@ export default function FooterNewsletterForm({
         Email address
       </label>
 
-      <div className="flex items-stretch border border-black/25 bg-white transition-colors focus-within:border-plum">
+      <div className="flex items-center border-b-[0.5px] border-white/70">
         <input
           id={inputId}
           name="email"
@@ -41,16 +39,16 @@ export default function FooterNewsletterForm({
           autoCapitalize="none"
           autoCorrect="off"
           spellCheck={false}
-          placeholder="EMAIL ADDRESS"
-          className="min-w-0 flex-1 bg-transparent px-4 py-2 text-sm tracking-[0.08em] text-black placeholder:lowercase placeholder:text-black/40 focus:outline-none lg:text-[15px]"
+          placeholder="email address"
+          className="min-w-0 flex-1 bg-transparent py-2 text-[11px] tracking-[0.08em] text-white placeholder:lowercase placeholder:text-white/70 focus:outline-none"
         />
 
         <button
           type="submit"
           aria-label="Sign up to the newsletter"
-          className="flex w-12 shrink-0 items-center justify-center border-l border-black/25 text-black transition-colors hover:bg-plum hover:text-white focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-plum"
+          className="flex h-9 w-8 shrink-0 items-center justify-center text-white transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
         >
-          <ChevronRightIcon className="h-5 w-5" />
+          <span aria-hidden="true">→</span>
         </button>
       </div>
     </form>

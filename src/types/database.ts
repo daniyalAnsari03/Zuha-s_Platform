@@ -236,6 +236,23 @@ export type StorePolicy = {
   updated_at: string;
 };
 
+/**
+ * A homepage informational slide (migration 022): a full-bleed, non-clickable
+ * image in the category slider. `sort_order` is ordered inside its placement
+ * group only. Public read of active rows; written only by the dashboard's
+ * Home Slides screen through the service role.
+ */
+export type HomeSlide = {
+  id: string;
+  /** Desktop image, shown on tablet/desktop and reused by mobile when unset. */
+  desktop_image_url: string;
+  mobile_image_url: string | null;
+  placement: "first" | "after_sale" | "after_categories";
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+};
+
 type Tables = {
   /**
    * Every table entry needs a `Relationships` array, otherwise the whole schema
@@ -329,6 +346,13 @@ type Tables = {
     Insert: Omit<StorePolicy, "updated_at"> &
       Partial<Pick<StorePolicy, "updated_at">>;
     Update: Partial<Omit<StorePolicy, "slug">>;
+    Relationships: [];
+  };
+  home_slides: {
+    Row: HomeSlide;
+    Insert: Omit<HomeSlide, "id" | "created_at"> &
+      Partial<Pick<HomeSlide, "id" | "created_at">>;
+    Update: Partial<Omit<HomeSlide, "id" | "created_at">>;
     Relationships: [];
   };
 };

@@ -13,6 +13,7 @@ export const CACHE_TAGS = {
   policy: (slug: string) => `policy:${slug}`,
   menu: "menu",
   home: "home",
+  homeSlides: "home-slides",
 } as const;
 
 export const DEFAULT_PUBLIC_REVALIDATE = 300;

@@ -66,21 +66,15 @@ export default function SocialLinks({
                 rel="noreferrer noopener"
                 aria-label={`${social.label} (opens in a new tab)`}
                 className={cn(
-                  "group flex items-center gap-3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum",
+                  "flex items-center gap-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",
                   linkClassName,
                 )}
               >
                 {/*
-                  `h-9 w-9` keeps the icon circle at 36px so the four rows match
-                  the line rhythm of the SHOP list beside them; the plum border
-                  on hover follows the anchor, which is the whole row.
+                  No circle and no border: a plain 14px icon followed by the
+                  platform label, matching the SHOP list's line rhythm.
                 */}
-                <span
-                  aria-hidden="true"
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/15 transition-colors group-hover:border-plum"
-                >
-                  <Icon />
-                </span>
+                <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                 <span>{social.label}</span>
               </a>
             </li>

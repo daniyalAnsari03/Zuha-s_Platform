@@ -46,7 +46,13 @@ export const MAX_GALLERY_IMAGES = 10;
 export const MAX_URL_LENGTH = 2000;
 
 /** Which prefix inside the `store-images` bucket a file belongs in. */
-export const UPLOAD_FOLDERS = ["categories", "products", "team", "sale"] as const;
+export const UPLOAD_FOLDERS = [
+  "categories",
+  "products",
+  "team",
+  "sale",
+  "home",
+] as const;
 
 export type UploadFolder = (typeof UPLOAD_FOLDERS)[number];
 

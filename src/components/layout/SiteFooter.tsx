@@ -17,7 +17,7 @@ type SiteFooterProps = {
 export default function SiteFooter({ categories, details }: SiteFooterProps) {
   return (
     <div
-      className="absolute inset-0 overflow-y-auto overscroll-contain bg-white"
+      className="absolute inset-0 overflow-y-auto overscroll-contain bg-[#f1e7ee]"
       data-scrollable
       id="site-footer"
       style={{ contentVisibility: "auto", containIntrinsicSize: "100svh" }}
@@ -34,7 +34,7 @@ export default function SiteFooter({ categories, details }: SiteFooterProps) {
       <SiteFooterContent
         categories={categories}
         details={details}
-        className="min-h-[max(100%,100svh)] pt-12 pb-4 md:pt-20 md:pb-6"
+        className="min-h-[max(100%,100svh)] pt-8 pb-4 md:pt-9 md:pb-6"
       />
     </div>
   );

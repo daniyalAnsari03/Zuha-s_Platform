@@ -13,7 +13,11 @@ import {
 } from "react";
 
 import SiteFooter from "@/components/layout/SiteFooter";
-import type { HomeCategorySlide, HomeSaleSlide } from "@/lib/home-data";
+import type {
+  HomeCategorySlide,
+  HomeInfoSlide,
+  HomeSaleSlide,
+} from "@/lib/home-data";
 import { scheduleIdle } from "@/lib/idle";
 import { IMAGE_QUALITY, isVectorImage } from "@/lib/images";
 import { SLIDER_DURATION, SLIDER_EASE } from "@/lib/motion";
@@ -22,6 +26,8 @@ import type { StoreDetails } from "@/lib/site-config";
 type CategorySliderProps = {
   categories: HomeCategorySlide[];
   saleSlide: HomeSaleSlide | null;
+  /** Active informational slides, already ordered per placement group. */
+  infoSlides: HomeInfoSlide[];
   /** Store details for the footer slide, read once on the server. */
   details: StoreDetails;
   onFooterActiveChange: (active: boolean) => void;
@@ -149,17 +155,53 @@ type SlideMotion = {
   skip: boolean;
 };
 
+/** One entry of the slide stack, in order. See `items` in `CategorySlider`. */
+type StackItem =
+  | { kind: "info"; slide: HomeInfoSlide }
+  | { kind: "sale" }
+  | { kind: "category"; category: HomeCategorySlide };
+
 function CategorySlider({
   categories,
   saleSlide,
+  infoSlides,
   details,
   onFooterActiveChange,
   onActiveImageUrlChange,
 }: CategorySliderProps) {
   const reduceMotion = useReducedMotion();
   const zoomEnabled = !useCoarsePointer();
-  const categoryOffset = saleSlide ? 1 : 0;
-  const total = categories.length + categoryOffset + 1;
+
+  /**
+   * Every non-footer slide, in exact stack order: the admin's informational
+   * slides in their three placement groups, the optional Sale slide between
+   * "first" and "after_sale", the category slides, then the "after_categories"
+   * group. One list is what the render loop, the header-tone lookup and the
+   * dot labels all walk, so the three can never disagree about what slide N is.
+   */
+  const items = useMemo<StackItem[]>(() => {
+    const first = infoSlides.filter((slide) => slide.placement === "first");
+    const afterSale = infoSlides.filter(
+      (slide) => slide.placement === "after_sale",
+    );
+    const afterCategories = infoSlides.filter(
+      (slide) => slide.placement === "after_categories",
+    );
+
+    const list: StackItem[] = [];
+
+    for (const slide of first) list.push({ kind: "info", slide });
+    if (saleSlide) list.push({ kind: "sale" });
+    for (const slide of afterSale) list.push({ kind: "info", slide });
+    for (const category of categories) {
+      list.push({ kind: "category", category });
+    }
+    for (const slide of afterCategories) list.push({ kind: "info", slide });
+
+    return list;
+  }, [categories, infoSlides, saleSlide]);
+
+  const total = items.length + 1;
   const totalRef = useRef(total);
   const indexRef = useRef(0);
   const lockedRef = useRef(false);
@@ -223,21 +265,30 @@ function CategorySlider({
   }, [index, decodeSlide]);
 
   /*
-   * Which image is really on screen: the `<picture>` below takes the mobile
-   * image below `md` and falls back to the desktop one, so the header tone is
+   * Which image is really on screen: the slide components below take the mobile
+   * image below `md` and fall back to the desktop one, so the header tone is
    * measured against exactly the same candidate (and re-measured when the
-   * viewport crosses that breakpoint).
+   * viewport crosses that breakpoint). Informational slides, the Sale slide
+   * and category slides all feed the same adaptive tone.
    */
   useEffect(() => {
-    const categoryIndex = index - categoryOffset;
-    const category =
-      index === 0 && saleSlide
-        ? saleSlide
-        : categoryIndex >= 0
-          ? categories[categoryIndex]
-          : undefined;
+    const item = items[index];
 
-    if (!category) {
+    if (!item) {
+      onActiveImageUrlChange(null);
+      return;
+    }
+
+    const art:
+      | { imageUrl: string; mobileImageUrl: string | null }
+      | null =
+      item.kind === "sale"
+        ? saleSlide
+        : item.kind === "info"
+          ? item.slide
+          : item.category;
+
+    if (!art) {
       onActiveImageUrlChange(null);
       return;
     }
@@ -245,9 +296,7 @@ function CategorySlider({
     const media = window.matchMedia(MOBILE_MEDIA);
     const report = () => {
       onActiveImageUrlChange(
-        media.matches && category.mobileImageUrl
-          ? category.mobileImageUrl
-          : category.imageUrl,
+        media.matches && art.mobileImageUrl ? art.mobileImageUrl : art.imageUrl,
       );
     };
 
@@ -255,7 +304,7 @@ function CategorySlider({
     media.addEventListener("change", report);
 
     return () => media.removeEventListener("change", report);
-  }, [index, categories, saleSlide, categoryOffset, onActiveImageUrlChange]);
+  }, [index, items, saleSlide, onActiveImageUrlChange]);
 
   const goTo = useCallback((next: number) => {
     if (lockedRef.current) return;
@@ -582,55 +631,42 @@ function CategorySlider({
       aria-roledescription="carousel"
       aria-label="Shop by category"
     >
-      {saleCategory ? (
-        <CategorySlide
-          key={saleCategory.id}
-          category={saleCategory}
-          href="/sale"
-          slideIndex={0}
-          y={slideMotion(0).y}
-          zIndex={slideMotion(0).zIndex}
-          skip={slideMotion(0).skip}
-          visible={isSlidePainted(
-            0,
-            index,
-            fromIndex,
-            slideMotion(0).skip,
-          )}
-          animating={fromIndex !== null && (index === 0 || fromIndex === 0)}
-          isActive={index === 0}
-          duration={duration}
-          zoomEnabled={zoomEnabled}
-          registerSlide={registerSlide}
-        />
-      ) : null}
+      {items.map((item, slideIndex) => {
+        const state = slideMotion(slideIndex);
+        const sharedProps = {
+          slideIndex,
+          y: state.y,
+          zIndex: state.zIndex,
+          skip: state.skip,
+          visible: isSlidePainted(slideIndex, index, fromIndex, state.skip),
+          animating:
+            fromIndex !== null &&
+            (slideIndex === index || slideIndex === fromIndex),
+          isActive: slideIndex === index,
+          duration,
+          registerSlide,
+        };
 
-      {categories.map((category, slideIndex) => {
-        const actualSlideIndex = slideIndex + categoryOffset;
-        const state = slideMotion(actualSlideIndex);
+        if (item.kind === "info") {
+          return (
+            <InfoSlide
+              key={item.slide.id}
+              slide={item.slide}
+              zoomEnabled={zoomEnabled}
+              {...sharedProps}
+            />
+          );
+        }
 
         return (
           <CategorySlide
-            key={category.id}
-            category={category}
-            slideIndex={actualSlideIndex}
-            y={state.y}
-            zIndex={state.zIndex}
-            skip={state.skip}
-            visible={isSlidePainted(
-              actualSlideIndex,
-              index,
-              fromIndex,
-              state.skip,
-            )}
-            animating={
-              fromIndex !== null &&
-              (actualSlideIndex === index || actualSlideIndex === fromIndex)
+            key={item.kind === "sale" ? "sale" : item.category.id}
+            category={
+              item.kind === "sale" ? saleCategory! : item.category
             }
-            isActive={actualSlideIndex === index}
-            duration={duration}
+            href={item.kind === "sale" ? "/sale" : undefined}
             zoomEnabled={zoomEnabled}
-            registerSlide={registerSlide}
+            {...sharedProps}
           />
         );
       })}
@@ -665,8 +701,13 @@ function CategorySlider({
         footerActive={index === total - 1}
         onSelect={goTo}
         labels={[
-          ...(saleSlide ? ["Sale"] : []),
-          ...categories.map((category) => category.name),
+          ...items.map((item) =>
+            item.kind === "info"
+              ? "Image slide"
+              : item.kind === "sale"
+                ? "Sale"
+                : item.category.name,
+          ),
           "Footer",
         ]}
       />
@@ -800,6 +841,91 @@ const CategorySlide = memo(function CategorySlide({
       >
         <span className="sr-only">{category.name}</span>
       </Link>
+    </motion.section>
+  );
+});
+
+type InfoSlideProps = {
+  slide: HomeInfoSlide;
+  slideIndex: number;
+  y: string;
+  zIndex: number;
+  skip: boolean;
+  visible: boolean;
+  animating: boolean;
+  isActive: boolean;
+  duration: number;
+  zoomEnabled: boolean;
+  registerSlide: (slide: number, element: HTMLElement | null) => void;
+};
+
+/**
+ * An informational slide from Admin → Home Slides: a full-bleed image with NO
+ * text overlay and NO link. Clicking or tapping it does nothing — no Link, so
+ * it is not focusable, shows no pointer cursor and has no hover effect; the
+ * generic empty alt keeps it a plain decorative image.
+ *
+ * Everything else is identical to a category slide (cover transition, tone
+ * reporting, neighbour decoding, mobile performance rules), which is why the
+ * structure is shared with `CategorySlide` rather than branched inside it.
+ */
+const InfoSlide = memo(function InfoSlide({
+  slide,
+  slideIndex,
+  y,
+  zIndex,
+  skip,
+  visible,
+  animating,
+  isActive,
+  duration,
+  zoomEnabled,
+  registerSlide,
+}: InfoSlideProps) {
+  return (
+    <motion.section
+      ref={(element) => registerSlide(slideIndex, element)}
+      className="absolute inset-0 h-full touch-none"
+      initial={false}
+      animate={{ y }}
+      transition={skip ? INSTANT_TRANSITION : { duration, ease: SLIDER_EASE }}
+      style={{
+        zIndex,
+        visibility: visible ? "visible" : "hidden",
+        willChange: animating ? "transform" : "auto",
+      }}
+      aria-hidden={!isActive}
+      inert={!isActive}
+    >
+      <motion.div
+        className="absolute inset-0"
+        initial={false}
+        animate={{ scale: zoomEnabled && !isActive ? 1.06 : 1 }}
+        transition={skip ? INSTANT_TRANSITION : { duration, ease: SLIDER_EASE }}
+        style={{ willChange: animating && zoomEnabled ? "transform" : "auto" }}
+      >
+        <picture className="absolute inset-0 block">
+          {slide.mobileImageUrl ? (
+            <source
+              media={MOBILE_MEDIA}
+              sizes="100vw"
+              srcSet={slideSrcSet(slide.mobileImageUrl)}
+            />
+          ) : null}
+          <Image
+            src={slide.imageUrl}
+            alt=""
+            fill
+            priority={slideIndex === 0}
+            loading={slideIndex < EAGER_SLIDES ? "eager" : "lazy"}
+            fetchPriority={slideIndex < EAGER_SLIDES ? "high" : undefined}
+            unoptimized={isVectorImage(slide.imageUrl)}
+            quality={IMAGE_QUALITY}
+            sizes="100vw"
+            className="object-cover"
+          />
+        </picture>
+      </motion.div>
     </motion.section>
   );
 });

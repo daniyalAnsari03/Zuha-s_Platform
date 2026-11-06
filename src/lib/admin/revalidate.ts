@@ -66,6 +66,7 @@ export function revalidateStorefront(affected: {
   expireCacheTag(CACHE_TAGS.products);
   expireCacheTag(CACHE_TAGS.menu);
   expireCacheTag(CACHE_TAGS.home);
+  expireCacheTag(CACHE_TAGS.homeSlides);
   expireCacheTag(CACHE_TAGS.announcements);
   expireCacheTag(CACHE_TAGS.team);
   expireCacheTag(CACHE_TAGS.storeDetails);

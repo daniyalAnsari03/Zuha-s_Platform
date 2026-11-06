@@ -21,6 +21,24 @@
   --color-plum: #4a2040;
   --color-plum-dark: #3a1833;
   --color-plum-light: #7a3570;
+  --site-footer-gradient-desktop: linear-gradient(
+    180deg,
+    #5a2d50 0%,
+    #85607d calc(100% - 175px),
+    #c4aabd calc(100% - 105px),
+    #e8dce4 calc(100% - 40px),
+    #f1e7ee 100%
+  );
+  --site-footer-gradient-mobile: linear-gradient(
+    180deg,
+    #5a2d50 0%,
+    #85607d calc(100% - 200px),
+    #c4aabd calc(100% - 120px),
+    #e8dce4 calc(100% - 45px),
+    #f1e7ee 100%
+  );
+  --site-footer-divider: rgba(255, 255, 255, 0.2);
+  --site-footer-copyright: #5f4c5b;
 }
 
 @theme inline {
@@ -39,6 +57,17 @@ body {
   background: var(--color-background);
   color: var(--color-foreground);
   font-family: var(--font-sans);
+}
+
+.site-footer {
+  background: var(--site-footer-gradient-mobile);
+  color: white;
+}
+
+@media (min-width: 768px) {
+  .site-footer {
+    background: var(--site-footer-gradient-desktop);
+  }
 }
 
 h1,

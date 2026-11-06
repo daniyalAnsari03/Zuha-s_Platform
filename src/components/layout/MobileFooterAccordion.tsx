@@ -27,10 +27,10 @@ import type { SiteSocialLink } from "@/lib/site-config";
 const ACCORDION_DURATION = "0.65s";
 
 const BODY_CLASS =
-  "flex w-full flex-col items-center text-center text-[13px] tracking-[0.08em] text-black/70 uppercase [overflow-wrap:anywhere]";
+  "flex w-full flex-col items-center text-center text-[11px] leading-[2.3] tracking-[0.1em] text-white/90 uppercase [overflow-wrap:anywhere]";
 
 const LINK_CLASS =
-  "flex min-h-11 w-full items-center justify-center px-2 text-center underline-offset-4 transition-colors hover:text-plum hover:underline";
+  "flex min-h-11 w-full items-center justify-center px-2 text-center transition-opacity hover:opacity-100";
 
 const PANEL_TRANSITION = `grid-template-rows ${ACCORDION_DURATION} var(--motion-ease), opacity ${ACCORDION_DURATION} var(--motion-ease)`;
 
@@ -77,7 +77,7 @@ export default function MobileFooterAccordion({
         <SocialLinks
           links={socials}
           variant="list"
-          className="mx-auto w-fit"
+          className="mx-auto w-fit space-y-[11px] text-[11px] leading-[2.3] uppercase tracking-[0.1em] text-white/90"
           linkClassName="min-h-11 px-2"
         />
       ),
@@ -108,7 +108,7 @@ export default function MobileFooterAccordion({
         return (
           <div
             key={section.id}
-            className="border-b border-black/10 first:border-t"
+            className="border-b-[0.5px] border-[color:var(--site-footer-divider)] last:border-b-0"
           >
             <h2 className="m-0">
               <button
@@ -116,7 +116,7 @@ export default function MobileFooterAccordion({
                 onClick={() => toggle(section.id)}
                 aria-expanded={expanded}
                 aria-controls={panelId}
-                className="flex min-h-11 w-full items-center justify-center gap-3 py-2 text-center font-sans text-sm tracking-[0.14em] uppercase transition-colors hover:text-plum focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-plum"
+                className="flex min-h-11 w-full items-center justify-between gap-3 py-[15px] text-left font-sans text-[11px] tracking-[0.2em] uppercase text-white transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
               >
                 <span>{section.label}</span>
 

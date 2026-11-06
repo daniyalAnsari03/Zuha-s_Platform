@@ -20,10 +20,14 @@ export default function PageFooter({ categories, details }: PageFooterProps) {
   return (
     <footer
       aria-label="Site footer"
-      className="mt-auto w-full shrink-0 bg-white pt-10 pb-4 md:pt-12 md:pb-6"
+      className="mt-auto w-full shrink-0"
       id="page-footer"
     >
-      <SiteFooterContent categories={categories} details={details} />
+      <SiteFooterContent
+        categories={categories}
+        details={details}
+        className="pt-8 pb-4 md:pt-9 md:pb-6"
+      />
     </footer>
   );
 }

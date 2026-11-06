@@ -7,7 +7,12 @@ import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 import AnnouncementBar from "@/components/layout/AnnouncementBar";
 import Navbar from "@/components/layout/Navbar";
 import WhatsAppButton from "@/components/layout/WhatsAppButton";
-import type { HomeAnnouncement, HomeCategorySlide, HomeSaleSlide } from "@/lib/home-data";
+import type {
+  HomeAnnouncement,
+  HomeCategorySlide,
+  HomeInfoSlide,
+  HomeSaleSlide,
+} from "@/lib/home-data";
 import {
   HEADER_TONE_FALLBACK,
   measureHeaderTone,
@@ -21,6 +26,8 @@ type HomeExperienceProps = {
   categories: HomeCategorySlide[];
   saleSlide: HomeSaleSlide | null;
   saleVisible: boolean;
+  /** Active informational slides ("Sale Coming Soon", …), no link, no text. */
+  infoSlides: HomeInfoSlide[];
   announcements: HomeAnnouncement[];
   /** Navigation tree for the hamburger menu. */
   menuCategories: MenuCategory[];
@@ -42,6 +49,7 @@ export default function HomeExperience({
   categories,
   saleSlide,
   saleVisible,
+  infoSlides,
   announcements,
   menuCategories,
   details,
@@ -72,11 +80,14 @@ export default function HomeExperience({
     if (saleSlide) {
       urls.push(saleSlide.imageUrl, saleSlide.mobileImageUrl);
     }
+    for (const slide of infoSlides) {
+      urls.push(slide.imageUrl, slide.mobileImageUrl);
+    }
     for (const category of categories) {
       urls.push(category.imageUrl, category.mobileImageUrl);
     }
     return prefetchHeaderTones(urls);
-  }, [categories, saleSlide]);
+  }, [categories, infoSlides, saleSlide]);
 
   useEffect(() => {
     if (!activeImageUrl) return;
@@ -108,6 +119,7 @@ export default function HomeExperience({
       <CategorySlider
         categories={categories}
         saleSlide={saleSlide}
+        infoSlides={infoSlides}
         details={details}
         onFooterActiveChange={handleFooterActiveChange}
         onActiveImageUrlChange={handleActiveImageUrlChange}

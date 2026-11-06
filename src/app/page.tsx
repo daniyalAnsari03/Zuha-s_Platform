@@ -1,21 +1,28 @@
 import HomeExperience from "@/components/home/HomeExperience";
-import { getHomeAnnouncements, getHomeCategories } from "@/lib/home-data";
+import {
+  getHomeAnnouncements,
+  getHomeCategories,
+  getHomeSlides,
+} from "@/lib/home-data";
 import { getMenuCategories } from "@/lib/menu-data";
 import { getSaleData } from "@/lib/sale-data";
 import { getStoreDetails } from "@/lib/store-details";
 
 export default async function Home() {
-  const [categories, announcements, menuCategories, details, sale] = await Promise.all([
-    getHomeCategories(),
-    getHomeAnnouncements(),
-    getMenuCategories(),
-    getStoreDetails(),
-    getSaleData(),
-  ]);
+  const [categories, infoSlides, announcements, menuCategories, details, sale] =
+    await Promise.all([
+      getHomeCategories(),
+      getHomeSlides(),
+      getHomeAnnouncements(),
+      getMenuCategories(),
+      getStoreDetails(),
+      getSaleData(),
+    ]);
 
   return (
     <HomeExperience
       categories={categories}
+      infoSlides={infoSlides}
       saleSlide={
         sale.hasSaleProducts && sale.desktopImageUrl
           ? {

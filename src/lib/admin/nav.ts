@@ -25,6 +25,7 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavItem[] = [
   { label: "Messages", href: "/admin/messages" },
   { label: "Analytics", href: "/admin/analytics" },
   { label: "Announcement Bar", href: "/admin/announcements" },
+  { label: "Home Slides", href: "/admin/home-slides" },
   { label: "Team Members", href: "/admin/team" },
   { label: "Settings", href: "/admin/settings" },
 ] as const;
