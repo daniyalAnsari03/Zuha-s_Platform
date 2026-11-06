@@ -21,24 +21,57 @@
   --color-plum: #4a2040;
   --color-plum-dark: #3a1833;
   --color-plum-light: #7a3570;
+  /*
+   * One smooth, eased percentage-stop gradient over the FULL footer height —
+   * the same stops for desktop and mobile: dark plum at the very top, lightening
+   * evenly all the way down, pure white from 80%. The wordmark/links must sit
+   * in the top ~48% and the payment logos/copyright on the white tail (the
+   * flexible spacer in the footer content pins them there).
+   */
   --site-footer-gradient-desktop: linear-gradient(
     180deg,
     #5a2d50 0%,
-    #85607d calc(100% - 175px),
-    #c4aabd calc(100% - 105px),
-    #e8dce4 calc(100% - 40px),
-    #f1e7ee 100%
+    #63385a 10%,
+    #724b69 20%,
+    #84627c 30%,
+    #997d92 40%,
+    #af9aab 50%,
+    #c8b9c5 60%,
+    #e3dbe1 70%,
+    #f1edf0 75%,
+    #ffffff 80%,
+    #ffffff 100%
   );
   --site-footer-gradient-mobile: linear-gradient(
     180deg,
     #5a2d50 0%,
-    #85607d calc(100% - 200px),
-    #c4aabd calc(100% - 120px),
-    #e8dce4 calc(100% - 45px),
-    #f1e7ee 100%
+    #63385a 10%,
+    #724b69 20%,
+    #84627c 30%,
+    #997d92 40%,
+    #af9aab 50%,
+    #c8b9c5 60%,
+    #e3dbe1 70%,
+    #f1edf0 75%,
+    #ffffff 80%,
+    #ffffff 100%
   );
   --site-footer-divider: rgba(255, 255, 255, 0.2);
   --site-footer-copyright: #5f4c5b;
+  /*
+   * Desktop/tablet wordmark alignment tokens (checked with the columns): the
+   * footer wordmark is sized by --site-footer-wordmark-size with
+   * --site-footer-wordmark-gap below it, and the SHOP / FOLLOW / POLICIES
+   * group carries that sum as its top padding (both in
+   * `SiteFooterContent`), so the column headings always sit on the same line
+   * as the first element under the wordmark — the tagline from `lg` up, the
+   * newsletter on tablet.
+   */
+  --site-footer-wordmark-size: clamp(44px, 3.4vw, 60px);
+  --site-footer-wordmark-gap: 24px;
+  --site-footer-columns-top: calc(
+    var(--site-footer-wordmark-size) + var(--site-footer-wordmark-gap)
+  );
 }
 
 @theme inline {

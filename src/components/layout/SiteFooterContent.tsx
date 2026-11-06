@@ -6,7 +6,7 @@ import MobileFooterAccordion from "@/components/layout/MobileFooterAccordion";
 import SocialLinks from "@/components/layout/SocialLinks";
 import { CONTENT_CONTAINER } from "@/lib/content-container";
 import { IMAGE_QUALITY } from "@/lib/images";
-import { FOOTER_LOGO_CLASS } from "@/lib/logo";
+import { FOOTER_LOGO_CLASS, LOGO_FONT_CLASS } from "@/lib/logo";
 import { STORE_POLICY_LINKS } from "@/lib/policy-types";
 import type { SiteSocialLink, StoreDetails } from "@/lib/site-config";
 import { cn } from "@/lib/utils";
@@ -19,26 +19,48 @@ import { cn } from "@/lib/utils";
  */
 const CONTENT_BASE = cn(
   CONTENT_CONTAINER,
-  "flex flex-1 flex-col items-center gap-5 text-center text-white md:gap-0",
+  "flex flex-1 flex-col items-center gap-4 text-center text-white md:gap-0",
 );
 
 /**
- * The block holding everything above the payment row. `flex-1` is what lets
- * the bottom block (payment logos + copyright) sit at the very bottom of a
- * full-screen footer while the columns stay vertically centred; on a
+ * The block holding everything above the payment row. The flexible spacer
+ * between it and the bottom block (`flex-1`, below) is what pulls the bottom
+ * block to the very bottom of a full-screen footer, while this block stays at
+ * the top so the white text sits in the gradient's dark upper half; on a
  * normal-height footer there is no free space, so it simply sizes to content.
  */
 const MAIN_BLOCK_CLASS =
-  "flex w-full flex-1 flex-col items-center justify-center gap-5 md:gap-8";
+  "flex w-full flex-col items-center gap-4 md:gap-8";
 
 /**
- * Desktop/tablet top area (from `md` up): a four-column grid — the wider brand
- * column (wordmark, tagline, newsletter, text links) then SHOP, FOLLOW and
- * POLICIES. Hidden below `md`: phones get the wordmark, the SHOP / FOLLOW /
- * POLICIES accordion and the newsletter as a centred stack instead.
+ * Desktop/tablet top area (from `md` up): the brand block (wordmark, tagline,
+ * newsletter, text links) at the LEFT edge and the SHOP / FOLLOW / POLICIES
+ * group pushed to the RIGHT edge (`justify-between`), so both edges land on
+ * the container's equal horizontal padding. The three link columns sit inside
+ * the group with one equal gap; the group's top padding is the wordmark's
+ * height + bottom gap (the shared `--site-footer-columns-top` token), so the
+ * headings always start on the first line under the wordmark — the tagline
+ * from `lg` up, the newsletter on tablet. Hidden below `md`: phones get the
+ * wordmark, the SHOP / FOLLOW / POLICIES accordion and the newsletter as a
+ * centred stack instead.
  */
-const TOP_GRID_CLASS =
-  "hidden w-full text-left md:grid md:grid-cols-[1.2fr_1fr_1fr_1fr] md:items-start md:gap-x-[26px]";
+const TOP_AREA_CLASS =
+  "hidden w-full text-left md:flex md:items-start md:justify-between";
+
+/**
+ * The brand block: a fixed width equal to the tagline's own max-width, so the
+ * wordmark (whose letters spread across the block with `justify-between`)
+ * is exactly as wide as the paragraph under it. `shrink-0` keeps the width
+ * when the top area squeezes.
+ */
+const BRAND_BLOCK_CLASS = "flex w-[230px] shrink-0 flex-col items-start";
+
+/** The SHOP / FOLLOW / POLICIES group pushed to the right edge. */
+const TOP_COLUMNS_GROUP_CLASS =
+  "flex items-start gap-x-[60px] pt-[var(--site-footer-columns-top)]";
+
+/** Each link column: just min-width 0 (the top offset lives on the group). */
+const TOP_COLUMN_CLASS = "min-w-0";
 
 /**
  * SHOP / FOLLOW / POLICIES: the plain sans the links use — the global `h1-h6`
@@ -65,7 +87,7 @@ const COLUMN_LINK_CLASS =
  */
 const NEWSLETTER_HEADING_CLASS = cn(
   COLUMN_BODY_CLASS,
-  "mb-4 font-sans text-[11px] leading-relaxed text-white/80",
+  "mb-2 font-sans text-[11px] leading-relaxed text-white/80 md:mb-4",
 );
 
 /**
@@ -75,13 +97,27 @@ const FOOTER_LINK_CLASS =
   "inline-flex items-center justify-center gap-1 whitespace-nowrap text-[11px] uppercase tracking-[0.14em] text-white opacity-90 transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80";
 
 /**
- * The wordmark link, shared by the mobile stack and the desktop column: the
- * navbar logo itself (same font, weight and tracking from `lib/logo`, ~1.3x
- * bigger), white, opening the homepage.
+ * The mobile (below `md`) wordmark link: the navbar logo's font, weight and
+ * tracking (~27px), white, leading the centred stack and opening the homepage.
  */
 const WORDMARK_CLASS = cn(
   FOOTER_LOGO_CLASS,
   "text-white transition-opacity hover:opacity-70",
+);
+
+/**
+ * The desktop/tablet wordmark (from `md` up): the letters split into spans
+ * laid out with `justify-content: space-between` across the brand block's
+ * width — the width of the tagline under it — so the first letter is flush
+ * with the left edge, the last flush with the right, with no trailing
+ * letter-spacing. Sized by the shared `--site-footer-wordmark-size` token and
+ * given the shared `--site-footer-wordmark-gap` bottom gap, which is what the
+ * columns' group top padding is built from. The spans are aria-hidden and the
+ * accessible name comes from the link's aria-label.
+ */
+const WORDMARK_LETTERS_CLASS = cn(
+  LOGO_FONT_CLASS,
+  "flex w-full justify-between text-[length:var(--site-footer-wordmark-size)] text-white transition-opacity hover:opacity-70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80",
 );
 
 /**
@@ -152,6 +188,30 @@ type SiteFooterContentProps = {
 };
 
 /**
+ * The desktop/tablet wordmark: splits the store name into per-letter spans so
+ * flex can spread them across the brand block. `details.name` is safe here —
+ * the store name's own characters, one `<span>` each.
+ */
+function FooterWordmark({ name }: { name: string }) {
+  return (
+    <Link
+      href="/"
+      aria-label="ZUHA'S home"
+      className={cn(
+        WORDMARK_LETTERS_CLASS,
+        "mb-[var(--site-footer-wordmark-gap)]",
+      )}
+    >
+      {name.split("").map((letter, index) => (
+        <span aria-hidden="true" key={index}>
+          {letter}
+        </span>
+      ))}
+    </Link>
+  );
+}
+
+/**
  * The newsletter signup line plus the two text links under it — as one
  * section, shared by the desktop column and the mobile stack, so the input,
  * the links and their spacing can never drift apart. Contact Us and Team live
@@ -182,13 +242,13 @@ function FooterNewsletter({ idSuffix }: { idSuffix: string }) {
       {/* UI only: no endpoint, no table, no validation — the button does nothing. */}
       <FooterNewsletterForm idSuffix={idSuffix} />
 
-      <div className="mt-5 flex flex-nowrap items-center justify-center gap-[22px] md:justify-start">
+      <div className="mt-3 flex flex-wrap items-center justify-center gap-[13px] md:mt-5 md:justify-start md:gap-[22px]">
         <Link href="/contact" className={FOOTER_LINK_CLASS}>
           Contact Us <span aria-hidden="true">→</span>
         </Link>
 
         <Link href="/team" className={FOOTER_LINK_CLASS}>
-          Team <span aria-hidden="true">→</span>
+          Team Members <span aria-hidden="true">→</span>
         </Link>
       </div>
     </section>
@@ -198,11 +258,12 @@ function FooterNewsletter({ idSuffix }: { idSuffix: string }) {
 /**
  * The single definition of the footer:
  *
- * - From `md` up, one top area in a four-column grid inside the content
- *   container: the brand column (white wordmark, a short tagline on `lg` and
- *   up, the newsletter and the two text links) followed by SHOP (dynamic from
- *   the categories table), FOLLOW (social links with a small icon + a label,
- *   only for networks whose link is set) and POLICIES.
+ * - From `md` up, one top area inside the content container: the brand block
+ *   at the left edge (white wordmark spread letter-by-letter across the
+ *   tagline's width, a short tagline on `lg` and up, the newsletter and the
+ *   two text links) with the SHOP (dynamic from the categories table), FOLLOW
+ *   (social links with a small icon + a label, only for networks whose link is
+ *   set) and POLICIES columns pushed to the right edge.
  * - Below `md`, everything is centred: the wordmark leads the footer, then
  *   the SHOP / FOLLOW / POLICIES accordion, then the newsletter with the same
  *   two text links.
@@ -210,7 +271,7 @@ function FooterNewsletter({ idSuffix }: { idSuffix: string }) {
  *   per-logo heights — no "We accept" text, no background or border — then
  *   the copyright line.
  *
- * The whole footer carries one continuous plum-to-light vertical gradient
+ * The whole footer carries one continuous dark-to-white vertical gradient
  * (`.site-footer`), with no borders, boxes or filled buttons anywhere.
  *
  * `SiteFooter` wraps this in the homepage's full-screen cover-scroll slide,
@@ -234,7 +295,7 @@ export default function SiteFooterContent({
         {/*
           Phones (below `md`): the wordmark leads the footer, with the accordion
           and the newsletter following underneath. Hidden from `md` up, where
-          the wordmark lives at the top of the brand column instead.
+          the wordmark leads the brand block instead.
         */}
         <Link
           href="/"
@@ -248,99 +309,111 @@ export default function SiteFooterContent({
           {/* The centred accordion stack phones get instead of the columns. */}
           <MobileFooterAccordion categories={categories} socials={socials} />
 
-          <div className="mt-[6px] flex w-full flex-col items-center md:hidden">
+          <div className="mt-1 flex w-full flex-col items-center md:hidden">
             <div className="w-full max-w-[280px]">
               <FooterNewsletter idSuffix="mobile" />
             </div>
           </div>
 
           {/*
-            Desktop/tablet top area: the brand column plus SHOP, FOLLOW and
-            POLICIES as direct grid children.
+            Desktop/tablet top area: the brand block at the left edge and the
+            SHOP / FOLLOW / POLICIES group pushed to the right edge. The
+            wordmark is the only element higher up; the columns' padding-top
+            (the shared `--site-footer-columns-top` token) puts their headings
+            on the tagline's first line from `lg` up and on the newsletter's
+            first line on tablet.
           */}
-          <div className={TOP_GRID_CLASS}>
-            <div className="flex min-w-0 flex-col items-start gap-4">
-              <Link href="/" aria-label="ZUHA'S home" className={WORDMARK_CLASS}>
-                {details.name}
-              </Link>
+          <div className={TOP_AREA_CLASS}>
+            <div className={BRAND_BLOCK_CLASS}>
+              <FooterWordmark name={details.name} />
 
-              <p className="hidden max-w-[230px] text-[11px] leading-[1.7] text-white/[0.88] lg:block">
+              <p className="hidden max-w-[230px] text-[11px] leading-[1.7] text-white/[0.88] lg:mb-5 lg:block">
                 Editorial fashion for women, men and kids. Bags and jewellery to
                 finish the look.
               </p>
 
-              <div className="mt-1 w-full max-w-[250px]">
+              <div className="w-full">
                 <FooterNewsletter idSuffix="desktop" />
               </div>
             </div>
 
-            <section aria-labelledby="footer-shop" className="min-w-0">
-              <h2
-                id="footer-shop"
-                className={COLUMN_HEADING_CLASS}
-                style={{ fontFamily: "var(--font-sans)" }}
-              >
-                Shop
-              </h2>
-              <ul className={COLUMN_BODY_CLASS}>
-                {categories.map((category) => (
-                  <li key={category.slug}>
-                    <Link
-                      href={`/category/${category.slug}`}
-                      className={COLUMN_LINK_CLASS}
-                    >
-                      {category.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <div className={TOP_COLUMNS_GROUP_CLASS}>
+              <section aria-labelledby="footer-shop" className={TOP_COLUMN_CLASS}>
+                <h2
+                  id="footer-shop"
+                  className={COLUMN_HEADING_CLASS}
+                  style={{ fontFamily: "var(--font-sans)" }}
+                >
+                  Shop
+                </h2>
+                <ul className={COLUMN_BODY_CLASS}>
+                  {categories.map((category) => (
+                    <li key={category.slug}>
+                      <Link
+                        href={`/category/${category.slug}`}
+                        className={COLUMN_LINK_CLASS}
+                      >
+                        {category.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
 
-            {/*
-              FOLLOW: a vertical icon + label list, not the icon-only row the
-              /contact page uses, so the column lines up with SHOP beside it.
-              Only networks whose link is set are rendered — a blank entry in
-              the list would read as broken.
-            */}
-            <section aria-labelledby="footer-follow" className="min-w-0">
-              <h2
-                id="footer-follow"
-                className={COLUMN_HEADING_CLASS}
-                style={{ fontFamily: "var(--font-sans)" }}
-              >
-                Follow
-              </h2>
-              <SocialLinks
-                links={socials}
-                variant="list"
-                className={COLUMN_BODY_CLASS}
-                linkClassName={COLUMN_LINK_CLASS}
-              />
-            </section>
+              {/*
+                FOLLOW: a vertical icon + label list, not the icon-only row the
+                /contact page uses, so the column lines up with SHOP beside it.
+                Only networks whose link is set are rendered — a blank entry in
+                the list would read as broken.
+              */}
+              <section aria-labelledby="footer-follow" className={TOP_COLUMN_CLASS}>
+                <h2
+                  id="footer-follow"
+                  className={COLUMN_HEADING_CLASS}
+                  style={{ fontFamily: "var(--font-sans)" }}
+                >
+                  Follow
+                </h2>
+                <SocialLinks
+                  links={socials}
+                  variant="list"
+                  className={COLUMN_BODY_CLASS}
+                  linkClassName={COLUMN_LINK_CLASS}
+                />
+              </section>
 
-            <section aria-labelledby="footer-policies" className="min-w-0">
-              <h2
-                id="footer-policies"
-                className={COLUMN_HEADING_CLASS}
-                style={{ fontFamily: "var(--font-sans)" }}
-              >
-                Policies
-              </h2>
-              <ul className={COLUMN_BODY_CLASS}>
-                {STORE_POLICY_LINKS.map(({ slug, label }) => (
-                  <li key={slug}>
-                    <Link
-                      href={`/policies/${slug}`}
-                      className={COLUMN_LINK_CLASS}
-                    >
-                      {label}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
+              <section aria-labelledby="footer-policies" className={TOP_COLUMN_CLASS}>
+                <h2
+                  id="footer-policies"
+                  className={COLUMN_HEADING_CLASS}
+                  style={{ fontFamily: "var(--font-sans)" }}
+                >
+                  Policies
+                </h2>
+                <ul className={COLUMN_BODY_CLASS}>
+                  {STORE_POLICY_LINKS.map(({ slug, label }) => (
+                    <li key={slug}>
+                      <Link
+                        href={`/policies/${slug}`}
+                        className={COLUMN_LINK_CLASS}
+                      >
+                        {label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </div>
           </div>
         </div>
+
+        {/*
+          The flexible spacer that anchors the bottom block to the foot of the
+          footer: on the homepage's full-screen slide it absorbs all the free
+          height, so the payment logos and copyright always sit on the
+          gradient's white bottom; on a normal-height footer it is empty.
+        */}
+        <div aria-hidden="true" className="w-full flex-1" />
 
         {/*
           Bottom block: the four payment logos in one centred row at their own

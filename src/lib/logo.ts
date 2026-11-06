@@ -19,8 +19,10 @@ export const LOGO_FONT_CLASS =
 export const LOGO_CLASS = `${LOGO_FONT_CLASS} text-[28px] tracking-[0.14em] sm:text-[34px] sm:tracking-[0.18em] md:text-[38px] md:tracking-[0.2em] lg:text-[44px]`;
 
 /**
- * Footer wordmark: the same logo at ~1.3x the navbar size (36 / 44 / 50 / 57px
- * against 28 / 34 / 38 / 44px), centred directly above the copyright line and
- * coloured black by the footer itself.
+ * Footer wordmark BELOW `md` only: same font/weight as the navbar logo, ~30px
+ * with slightly relaxed tracking, leading the mobile centred stack. From `md`
+ * up the footer wordmark is a different surface — its letters are spread
+ * across the tagline width with `justify-between` in `SiteFooterContent`,
+ * sized by the `--site-footer-wordmark-size` token in globals.css.
  */
-export const FOOTER_LOGO_CLASS = `${LOGO_FONT_CLASS} text-[36px] tracking-[0.14em] sm:text-[44px] sm:tracking-[0.18em] md:text-[50px] md:tracking-[0.2em] lg:text-[57px]`;
+export const FOOTER_LOGO_CLASS = `${LOGO_FONT_CLASS} text-[30px] tracking-[0.3em]`;

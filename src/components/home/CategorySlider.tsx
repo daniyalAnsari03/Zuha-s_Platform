@@ -996,6 +996,10 @@ type DotRailProps = {
 const DOT_TRANSITION =
   "transition-[background-color,border-color,width,height] duration-300";
 
+/** The rail's one position, so the two states below only differ by visibility. */
+const DOT_RAIL_CLASS =
+  "absolute top-1/2 right-1 z-20 -translate-y-1/2 sm:right-3 md:right-5";
+
 function DotRail({
   total,
   index,
@@ -1004,7 +1008,16 @@ function DotRail({
   labels,
 }: DotRailProps) {
   return (
-    <div className="absolute top-1/2 right-1 z-20 -translate-y-1/2 sm:right-3 md:right-5">
+    <div
+      className={
+        // Below `md` the rail is hidden while the footer slide is active —
+        // its dots overlap the footer's accordion "+" handles and the payment
+        // logos there. Desktop keeps the dots exactly as they always were.
+        footerActive
+          ? `${DOT_RAIL_CLASS} hidden md:block`
+          : DOT_RAIL_CLASS
+      }
+    >
       <ul className="flex flex-col items-center">
         {Array.from({ length: total }, (_, dotIndex) => {
           const isActive = dotIndex === index;

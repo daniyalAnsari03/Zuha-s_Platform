@@ -26,7 +26,7 @@ export default function PageFooter({ categories, details }: PageFooterProps) {
       <SiteFooterContent
         categories={categories}
         details={details}
-        className="pt-8 pb-4 md:pt-9 md:pb-6"
+        className="pt-6 pb-4 md:pt-9 md:pb-6"
       />
     </footer>
   );

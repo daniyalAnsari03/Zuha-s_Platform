@@ -67,9 +67,9 @@ export function convertFromPkr(pkr: number, rate: number): number {
   return Math.round((pkr / rate) * 100) / 100;
 }
 
-/** Grouped PKR with the store's Rs. prefix, used everywhere customers see a price. */
+/** Grouped PKR with the store's "PKR" prefix, used everywhere customers see a price. */
 export function formatPkr(amount: number): string {
-  return `Rs. ${formatAmount(amount)}`;
+  return `PKR ${formatAmount(amount)}`;
 }
 
 function makeFormatter(code: ForeignCurrency): Intl.NumberFormat {

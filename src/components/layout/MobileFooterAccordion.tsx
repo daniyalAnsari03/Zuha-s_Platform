@@ -116,7 +116,7 @@ export default function MobileFooterAccordion({
                 onClick={() => toggle(section.id)}
                 aria-expanded={expanded}
                 aria-controls={panelId}
-                className="flex min-h-11 w-full items-center justify-between gap-3 py-[15px] text-left font-sans text-[11px] tracking-[0.2em] uppercase text-white transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
+                className="flex min-h-[52px] w-full items-center justify-between gap-3 text-left font-sans text-[11px] tracking-[0.2em] uppercase text-white transition-opacity hover:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80"
               >
                 <span>{section.label}</span>
 
